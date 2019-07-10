@@ -3,3 +3,4 @@ The aim of this project is to get a common code base for the analysis of MD traj
 
 Contributors:
 Matthias Kiesel 
+Tom Lindeboom
