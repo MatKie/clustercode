@@ -30,7 +30,9 @@ def cluster_analysis(coord, cluster_objects, traj=None,
     aggregate_species = get_aggregate_species(coord, cluster_objects, 
                                               traj=traj, style=style)
 
-    print("length of dict cluster_particles".format(len(cluster_particles)))
+    print("length of dict cluster_particles is {:d}".format(
+                                        len(aggregate_species))
+                                        )
 
     return 0
 
@@ -52,15 +54,15 @@ def get_aggregate_species(coord, cluster_objects, traj=None, style="atom"):
     
     # If beads are choosen we look for names instead of resnames 
     if style == "atom":
-        cluster_particles = universe.select_atoms(
+        aggregate_species  = universe.select_atoms(
                             "name {:s}".format(" ".join(cluster_objects))
                             )
     if style == "molecule":
-        cluster_particles = universe.select_atoms(
+        aggregate_species  = universe.select_atoms(
                               "resname {:s}".format(" ".join(cluster_objects))
                               )
     
     # Either way, in the end group by resid to get to get a grip on molecules
     # instead of subparts of them 
-    return cluster_particles.groupby("resids")
+    return aggregate_species.groupby("resids")
 
