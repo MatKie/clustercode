@@ -6,7 +6,7 @@ def cluster_analysis(coord, cluster_objects, traj=None,
     """High level function clustering molecules together.
         
     Args:
-        coords    (str): path to coordinate file. As of now tested: tpr.
+        coord    (str): path to coordinate file. As of now tested: tpr.
         cluster_objects
                   (str): string or list of strings with names of clustered 
                          objects. If style="atom" or "COM", this is a list 
@@ -26,27 +26,51 @@ def cluster_analysis(coord, cluster_objects, traj=None,
         Implement List of trajectories, which should facilitate anaylisis
         of replicas.
     """
-    
-    aggregate_species = get_aggregate_species(coord, cluster_objects, 
-                                              traj=traj, style=style)
+    universe          = get_universe(coord, traj=traj)
 
-    print("length of dict cluster_particles is {:d}".format(
-                                        len(aggregate_species))
-                                        )
+    aggregate_species = get_aggregate_species(universe, cluster_objects, 
+                                              style=style)
+
+    def get_cluster_list(aggregate_species, cutoff=7.5):
+        """Get Cluster from single frame
+
+        """  
+        from MDAnalysis.lib.NeighborSearch import AtomNeighborSearch
+ 
+        cluster_list = []
+        aggregate_species_dict = aggregate_species.groupby("resids")
+        
+        for atoms in aggregate_species_dict.values():
+            cluster_temp = set(AtomNeighborSearch(aggregate_species).search(
+                                                    atoms=atoms, 
+                                                    radius=cutoff, 
+                                                    level="R"
+                                                    ))
+            cluster_list.append(cluster_temp)
+            
+        return cluster_list
+    print(aggregate_species) 
+    cluster_list = get_cluster_list(aggregate_species)
 
     return 0
 
-
-def get_aggregate_species(coord, cluster_objects, traj=None, style="atom"):
-    """Getting a dictionary of the species on which we determine aggregation
-
+def get_universe(coord, traj=None):
+    """Getting the universe when having or not having a trajector
 
     """
     if traj is not None:
         universe = MDAnalysis.Universe(coord, traj)
     else:
         universe = MDAnalysis.Universe(coord)
+    
+    return universe
 
+
+def get_aggregate_species(universe, cluster_objects, style="atom"):
+    """Getting a dictionary of the species on which we determine aggregation
+
+
+    """
     # Cast cluster_objects to list if only single string is given
     # this is necessary because of differences in processing strings and list 
     # of strings
@@ -64,5 +88,5 @@ def get_aggregate_species(coord, cluster_objects, traj=None, style="atom"):
     
     # Either way, in the end group by resid to get to get a grip on molecules
     # instead of subparts of them 
-    return aggregate_species.groupby("resids")
+    return aggregate_species
 
