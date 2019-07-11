@@ -10,7 +10,8 @@ def cluster_analysis(coord, cluster_objects, traj=None,
         cluster_objects
                   (str): string or list of strings with names of clustered 
                          objects. If style="atom" or "COM", this is a list 
-                         of particles, if style="molecule
+                         of particles, if style="molecule this is a molecule
+                         name
                          
         traj      (str): path to trajectory file. Has to fit to coordinate
                          file. As of now tested: xtc. 
@@ -26,6 +27,19 @@ def cluster_analysis(coord, cluster_objects, traj=None,
         of replicas.
     """
     
+    aggregate_species = get_aggregate_species(coord, cluster_objects, 
+                                              traj=traj, style=style)
+
+    print("length of dict cluster_particles".format(len(cluster_particles)))
+
+    return 0
+
+
+def get_aggregate_species(coord, cluster_objects, traj=None, style="atom"):
+    """Getting a dictionary of the species on which we determine aggregation
+
+
+    """
     if traj is not None:
         universe = MDAnalysis.Universe(coord, traj)
     else:
@@ -48,9 +62,5 @@ def cluster_analysis(coord, cluster_objects, traj=None,
     
     # Either way, in the end group by resid to get to get a grip on molecules
     # instead of subparts of them 
-    cluster_particles = cluster_particles.groupby("resids")
-    
-    return 0
-cluster_analysis("files/nvt_2018.tpr", "CE")
-
+    return cluster_particles.groupby("resids")
 
