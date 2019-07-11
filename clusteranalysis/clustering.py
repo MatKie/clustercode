@@ -1,6 +1,6 @@
 import MDAnalysis
 
-def cluster_analysis(coord, cluster_objects, traj=None, 
+def cluster_analysis(coord, cluster_objects, traj, 
                      cut_off=7.5, style="atom", measure="b2b"):
 
     """High level function clustering molecules together.
@@ -30,29 +30,49 @@ def cluster_analysis(coord, cluster_objects, traj=None,
 
     aggregate_species = get_aggregate_species(universe, cluster_objects, 
                                               style=style)
-
-    def get_cluster_list(aggregate_species, cutoff=7.5):
-        """Get Cluster from single frame
-
-        """  
-        from MDAnalysis.lib.NeighborSearch import AtomNeighborSearch
- 
-        cluster_list = []
-        aggregate_species_dict = aggregate_species.groupby("resids")
-        
-        for atoms in aggregate_species_dict.values():
-            cluster_temp = set(AtomNeighborSearch(aggregate_species).search(
-                                                    atoms=atoms, 
-                                                    radius=cutoff, 
-                                                    level="R"
-                                                    ))
-            cluster_list.append(cluster_temp)
-            
-        return cluster_list
-    print(aggregate_species) 
+    
     cluster_list = get_cluster_list(aggregate_species)
 
-    return 0
+    return cluster_list
+    
+def merge_cluster(cluster_list, cluster_temp):
+    """Code to merge a cluster into a cluster list
+
+    """
+    cluster_list.append(cluster_temp)
+    merged_index = []
+    for i, cluster in reversed(list(enumerate(cluster_list))):
+        if bool(cluster.intersection(cluster_temp)):
+            cluster_temp = cluster_temp | cluster
+            cluster_list[i] = cluster_temp
+            merged_index.append(i)
+            if len(merged_index) > 1.5:
+                del cluster_list[merged_index[0]]
+                del merged_index[0]
+            elif len(merged_index) > 1.5:
+                print("Somethings wrong with the cluster merging")
+    
+    return cluster_list
+        
+def get_cluster_list(aggregate_species, cutoff=7.5):
+    """Get Cluster from single frame
+
+    """  
+    from MDAnalysis.lib.NeighborSearch import AtomNeighborSearch
+
+    cluster_list = []
+    aggregate_species_dict = aggregate_species.groupby("resids")
+    
+    for atoms in aggregate_species_dict.values():
+        cluster_temp = set(AtomNeighborSearch(aggregate_species).search(
+                                                atoms=atoms, 
+                                                radius=cutoff, 
+                                                level="R"
+                                                ))
+        
+        cluster_list = merge_cluster(cluster_list, cluster_temp)   
+        
+    return cluster_list
 
 def get_universe(coord, traj=None):
     """Getting the universe when having or not having a trajector
