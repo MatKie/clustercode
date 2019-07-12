@@ -1,5 +1,4 @@
 import MDAnalysis
-
 def cluster_analysis(coord, cluster_objects, traj, 
                      cut_off=7.5, style="atom", measure="b2b"):
     """High level function clustering molecules together.
@@ -22,7 +21,7 @@ def cluster_analysis(coord, cluster_objects, traj,
         Not sure yet
 
     ToDo:
-        Implement List of trajectories, which should facilitate anaylisis
+        Implement List of trajectories, which should facilitate analysis
         of replicas.
     """
     universe          = get_universe(coord, traj=traj)
@@ -113,7 +112,5 @@ def get_aggregate_species(universe, cluster_objects, style="atom"):
                               "resname {:s}".format(" ".join(cluster_objects))
                               )
     
-    # Either way, in the end group by resid to get to get a grip on molecules
-    # instead of subparts of them 
     return aggregate_species
 
