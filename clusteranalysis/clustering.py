@@ -2,7 +2,6 @@ import MDAnalysis
 
 def cluster_analysis(coord, cluster_objects, traj, 
                      cut_off=7.5, style="atom", measure="b2b"):
-
     """High level function clustering molecules together.
         
     Args:
@@ -31,7 +30,15 @@ def cluster_analysis(coord, cluster_objects, traj,
     aggregate_species = get_aggregate_species(universe, cluster_objects, 
                                               style=style)
     
-    cluster_list = get_cluster_list(aggregate_species)
+    cluster_list = []
+
+    for time in universe.trajectory:
+        cluster_list.append(get_cluster_list(aggregate_species))
+
+    for time, cluster_time in enumerate(cluster_list):
+        print("FRAME: {:d}".format(time))
+        for i, cluster in enumerate(cluster_time):
+            print(len(cluster))
 
     return cluster_list
     
