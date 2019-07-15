@@ -18,37 +18,46 @@ class ClusterEnsemble():
         self.traj  = traj
         self.cluster_objects = cluster_objects
 
-    def cluster_analysis(self, cut_off=7.5, style="atom", measure="b2b"):
-    """High level function clustering molecules together.
-        
-    Args:
-        coord    (str): path to coordinate file. As of now tested: tpr.
-        cluster_objects
-                  (str): string or list of strings with names of clustered 
-                         objects. If style="atom" or "COM", this is a list 
-                         of particles, if style="molecule this is a molecule
-                         name
-                         
-        traj      (str): path to trajectory file. Has to fit to coordinate
-                         file. As of now tested: xtc. 
-        cut_off (float): minimal distance for two particles to be in the 
-                         same cluster.
-        style     (str): "atom" or "molecule" 
-        measure   (str): b2b (bead to bead), COM or COG(center of geometry)
-    Returns: 
-        Not sure yet
+    def cluster_analysis(self, cut_off=7.5, style="atom", measure="b2b", algorithm="static"):
+        """High level function clustering molecules together.
+            
+        Args:
+            coord    (str): path to coordinate file. As of now tested: tpr.
+            cluster_objects
+                      (str): string or list of strings with names of clustered 
+                             objects. If style="atom" or "COM", this is a list 
+                             of particles, if style="molecule this is a molecule
+                             name
+                             
+            traj      (str): path to trajectory file. Has to fit to coordinate
+                             file. As of now tested: xtc. 
+            cut_off (float): minimal distance for two particles to be in the 
+                             same cluster.
+            style     (str): "atom" or "molecule" 
+            measure   (str): b2b (bead to bead), COM or COG(center of geometry)
+            algorithm (str): "static" or "dynamic"
+        Returns: 
+            Not sure yet
 
-    ToDo:
-        Implement List of trajectories, which should facilitate analysis
-        of replicas.
-    """
+        ToDo:
+            Implement List of trajectories, which should facilitate analysis
+            of replicas.
+        """
         self.universe = self._get_universe()
 
         self.aggregate_species = self._get_aggregate_species(style=style)
         
         self.cluster_list = []
+
+        if algorithm == "static":
+            cluster_algorithm = self._get_cluster_list_static
+        elif algorithm == "dynamic":
+            cluster_algorithm = self._get_cluster_list_dynamic
+        else:
+            print("{:s} is unspecified algorithm".format(algorithm))
+
         for time in self.universe.trajectory:
-            self.cluster_list.append(self._get_cluster_list())
+            self.cluster_list.append(cluster_algorithm())
 
     def _get_universe(self):
         """Getting the universe when having or not having a trajector
@@ -86,7 +95,27 @@ class ClusterEnsemble():
         return aggregate_species
 
 
-    def _get_cluster_list(self, cut_off=7.5):
+    def _get_cluster_list_static(self, cut_off=7.5):
+        """Get Cluster from single frame
+
+        """  
+        from MDAnalysis.lib.NeighborSearch import AtomNeighborSearch
+        
+        cluster_list = []
+        aggregate_species_dict = self.aggregate_species.groupby("resids")
+        
+        for atoms in aggregate_species_dict.values():
+            cluster_temp = set(AtomNeighborSearch(self.aggregate_species).search(
+                                                    atoms=atoms, 
+                                                    radius=cut_off, 
+                                                    level="R"
+                                                    ))
+            
+            cluster_list = self._merge_cluster(cluster_list, cluster_temp)   
+            
+        return cluster_list
+
+    def _get_cluster_list_dynamic(self, cut_off=7.5):
         """Get Cluster from single frame
 
         """  
