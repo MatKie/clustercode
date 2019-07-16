@@ -9,5 +9,4 @@ traj = "../files/nvt_short.xtc"
 
 #cluster_analysis(tpr, ["CE", "CM"], traj)
 ClstrEns = ClusterEnsemble(tpr, traj, ["CE", "CM"])
-ClstrEns.cluster_analysis() 
-
+ClstrEns.cluster_analysis(algorithm="dynamic") 
