@@ -66,7 +66,12 @@ class ClusterEnsemble():
         for time in self.universe.trajectory:
             self.cluster_list.append(cluster_algorithm())
             print("****TIME: {:8.2f}".format(time.time))
-            print("---->Number of clusters {:s}".format(len(cluster_list[-1])) 
+            print("---->Number of clusters {:d}".format(
+                    len(self.cluster_list[-1]))
+                    )
+            if len(self.cluster_list) > 20 :
+                break
+ 
     def _get_universe(self):
         """Getting the universe when having or not having a trajector
 
