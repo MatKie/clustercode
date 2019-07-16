@@ -71,7 +71,6 @@ class ClusterEnsemble():
                     )
             if len(self.cluster_list) > 20 :
                 break
- 
     def _get_universe(self):
         """Getting the universe when having or not having a trajector
 
@@ -132,7 +131,7 @@ class ClusterEnsemble():
         """  
         cluster_list = []
         aggregate_species_dict = self.aggregate_species.groupby("resids")
-        aggregate_species_set = {atoms.atoms.residues[0] for atoms in aggregate_species_dict.values()}
+        aggregate_species_set = {atomsi.atoms.residues[0] for atomsi in aggregate_species_dict.values()}
 
         while len(aggregate_species_set) > 0.5:
             res_temp = set([aggregate_species_set.pop()])
@@ -178,9 +177,11 @@ class ClusterEnsemble():
             cluster_temp (set):  updated set of residues in cluster
 
         """
-        search_AtomGroup = MDAnalysis.AtomGroup([atom for residue in search_set for atom in residue.atoms])
+        search_atom_group = MDAnalysis.ResidueGroup(
+            [residue for residue in search_set]
+            )
         new_cluster_res = set(self.neighbour_search.search(
-            atoms=search_AtomGroup, 
+            atoms=search_atom_group.atoms, 
             radius=cut_off, 
             level="R"
             ))
