@@ -1,4 +1,5 @@
 import MDAnalysis
+import MDAnalysis.lib.NeighborSearch as NeighborSearch
 #from MDAnalysis.core.groups import ResidueGroup
 """
 ToDo:
@@ -18,37 +19,54 @@ class ClusterEnsemble():
         self.traj  = traj
         self.cluster_objects = cluster_objects
 
-    def cluster_analysis(self, cut_off=7.5, style="atom", measure="b2b"):
-    """High level function clustering molecules together.
-        
-    Args:
-        coord    (str): path to coordinate file. As of now tested: tpr.
-        cluster_objects
-                  (str): string or list of strings with names of clustered 
-                         objects. If style="atom" or "COM", this is a list 
-                         of particles, if style="molecule this is a molecule
-                         name
-                         
-        traj      (str): path to trajectory file. Has to fit to coordinate
-                         file. As of now tested: xtc. 
-        cut_off (float): minimal distance for two particles to be in the 
-                         same cluster.
-        style     (str): "atom" or "molecule" 
-        measure   (str): b2b (bead to bead), COM or COG(center of geometry)
-    Returns: 
-        Not sure yet
+    def cluster_analysis(self, cut_off=7.5, style="atom", measure="b2b", algorithm="static"):
+        """High level function clustering molecules together.
+            
+        Args:
+            coord    (str): path to coordinate file. As of now tested: tpr.
+            cluster_objects
+                      (str): string or list of strings with names of clustered 
+                             objects. If style="atom" or "COM", this is a list 
+                             of particles, if style="molecule this is a molecule
+                             name
+                             
+            traj      (str): path to trajectory file. Has to fit to coordinate
+                             file. As of now tested: xtc. 
+            cut_off (float): minimal distance for two particles to be in the 
+                             same cluster.
+            style     (str): "atom" or "molecule" 
+            measure   (str): b2b (bead to bead), COM or COG(center of geometry)
+            algorithm (str): "static" or "dynamic"
+        Returns: 
+            Not sure yet
 
-    ToDo:
-        Implement List of trajectories, which should facilitate analysis
-        of replicas.
-    """
+        ToDo:
+            Implement List of trajectories, which should facilitate analysis
+            of replicas.
+        """
         self.universe = self._get_universe()
 
         self.aggregate_species = self._get_aggregate_species(style=style)
         
         self.cluster_list = []
+
+        if algorithm == "static":
+            cluster_algorithm = self._get_cluster_list_static
+        elif algorithm == "dynamic":
+            cluster_algorithm = self._get_cluster_list_dynamic
+        else:
+            print("{:s} is unspecified algorithm".format(algorithm))
+
+        self.neighbour_search = NeighborSearch.AtomNeighborSearch(
+            self.aggregate_species, 
+            box=self.universe.dimensions,
+            bucket_size=10
+            )
+
         for time in self.universe.trajectory:
-            self.cluster_list.append(self._get_cluster_list())
+            self.cluster_list.append(cluster_algorithm())
+
+        print(len(self.cluster_list[0]))
 
     def _get_universe(self):
         """Getting the universe when having or not having a trajector
@@ -86,23 +104,40 @@ class ClusterEnsemble():
         return aggregate_species
 
 
-    def _get_cluster_list(self, cut_off=7.5):
+    def _get_cluster_list_static(self, cut_off=7.5):
         """Get Cluster from single frame
 
-        """  
-        from MDAnalysis.lib.NeighborSearch import AtomNeighborSearch
-
+        """   
         cluster_list = []
         aggregate_species_dict = self.aggregate_species.groupby("resids")
         
         for atoms in aggregate_species_dict.values():
-            cluster_temp = set(AtomNeighborSearch(self.aggregate_species).search(
+            cluster_temp = set(self.neighbour_search.search(
                                                     atoms=atoms, 
                                                     radius=cut_off, 
                                                     level="R"
                                                     ))
             
             cluster_list = self._merge_cluster(cluster_list, cluster_temp)   
+            
+        return cluster_list
+
+    def _get_cluster_list_dynamic(self, cut_off=7.5):
+        """Get Cluster from single frame
+
+        """  
+        cluster_list = []
+        aggregate_species_dict = self.aggregate_species.groupby("resids")
+        aggregate_species_set = {atoms.atoms.residues[0] for atoms in aggregate_species_dict.values()}
+
+        while len(aggregate_species_set) > 0.5:
+            res_temp = set([aggregate_species_set.pop()])
+            search_set = res_temp
+            cluster_temp = res_temp
+            while len(search_set) > 0.5:
+                search_set, cluster_temp = self._grow_cluster(cut_off, search_set, cluster_temp)
+            cluster_list.append(cluster_temp)
+            aggregate_species_set = aggregate_species_set.difference(cluster_temp)
             
         return cluster_list
 
@@ -124,4 +159,29 @@ class ClusterEnsemble():
                     print("Somethings wrong with the cluster merging")
         
         return cluster_list
+
+    def _grow_cluster(self, cut_off, search_set, cluster_temp):
+        """Code to grow a cluster (cluster_temp) and obtain new search set
+        (search_set)
+
+        Args:
+            cut_off    (float):  minimal distance for two particles to be in the 
+                                 same cluster.
+            search_set   (set):  set of residues in search set
+            cluster_temp (set):  set of residues in cluster
+        Returns: 
+            search_set   (set):  updated set of residues in search set
+            cluster_temp (set):  updated set of residues in cluster
+
+        """
+        search_AtomGroup = MDAnalysis.AtomGroup([atom for residue in search_set for atom in residue.atoms])
+        new_cluster_res = set(self.neighbour_search.search(
+            atoms=search_AtomGroup, 
+            radius=cut_off, 
+            level="R"
+            ))
+        search_set = new_cluster_res.difference(cluster_temp)
+        cluster_temp = cluster_temp.union(new_cluster_res)
+
+        return search_set, cluster_temp
 
