@@ -66,7 +66,7 @@ class ClusterEnsemble():
         for time in self.universe.trajectory:
             self.cluster_list.append(cluster_algorithm())
             print("****TIME: {:8.2f}".format(time.time))
-            print("---->Number of clusters {:f}".format(
+            print("---->Number of clusters {:d}".format(
                     len(self.cluster_list[-1]))
                     )
             if len(self.cluster_list) > 20 :
@@ -130,17 +130,17 @@ class ClusterEnsemble():
 
         """  
         cluster_list = []
-        aggregate_species_dict = self.aggregate_species.groupby("resids")
-        aggregate_species_set = {atomsi.atoms.residues[0] for atomsi in aggregate_species_dict.values()}
-
-        while len(aggregate_species_set) > 0.5:
-            res_temp = set([aggregate_species_set.pop()])
+        aggregate_species = self.aggregate_species.residues
+        #aggregate_species_set = {atomsi.atoms.residues[0] for atomsi in aggregate_species_dict.values()}
+        
+        while aggregate_species.n_residues > 0.5:
+            res_temp = aggregate_species[0].atoms.residues
             search_set = res_temp
             cluster_temp = res_temp
-            while len(search_set) > 0.5:
+            while search_set.n_residues > 0.5:
                 search_set, cluster_temp = self._grow_cluster(cut_off, search_set, cluster_temp)
             cluster_list.append(cluster_temp)
-            aggregate_species_set = aggregate_species_set.difference(cluster_temp)
+            aggregate_species = aggregate_species.difference(cluster_temp)
             
         return cluster_list
 
@@ -177,14 +177,16 @@ class ClusterEnsemble():
             cluster_temp (set):  updated set of residues in cluster
 
         """
-        search_atom_group = MDAnalysis.ResidueGroup(
-            [residue for residue in search_set]
+        #search_atom_group = MDAnalysis.ResidueGroup(
+        #    [residue for residue in search_set]
+        #    )
+        new_cluster_res = MDAnalysis.core.groups.ResidueGroup(
+            self.neighbour_search.search(
+                atoms=search_set.atoms, 
+                radius=cut_off, 
+                level="R"
+                )
             )
-        new_cluster_res = set(self.neighbour_search.search(
-            atoms=search_atom_group.atoms, 
-            radius=cut_off, 
-            level="R"
-            ))
         search_set = new_cluster_res.difference(cluster_temp)
         cluster_temp = cluster_temp.union(new_cluster_res)
 
