@@ -50,6 +50,12 @@ class ClusterEnsemble():
         
         self.cluster_list = []
 
+        self.neighbour_search = NeighborSearch.AtomNeighborSearch(
+            self.aggregate_species, 
+            box=self.universe.dimensions,
+            bucket_size=10
+            )
+
         if algorithm == "static":
             cluster_algorithm = self._get_cluster_list_static
         elif algorithm == "dynamic":
@@ -57,13 +63,8 @@ class ClusterEnsemble():
         else:
             print("{:s} is unspecified algorithm".format(algorithm))
 
-        self.neighbour_search = NeighborSearch.AtomNeighborSearch(
-            self.aggregate_species, 
-            box=self.universe.dimensions,
-            bucket_size=10
-            )
-
         for time in self.universe.trajectory:
+            
             self.cluster_list.append(cluster_algorithm())
             print("****TIME: {:8.2f}".format(time.time))
             print("---->Number of clusters {:d}".format(
@@ -132,12 +133,13 @@ class ClusterEnsemble():
         cluster_list = []
         aggregate_species = self.aggregate_species.residues
         #aggregate_species_set = {atomsi.atoms.residues[0] for atomsi in aggregate_species_dict.values()}
+        tempSum = 0
         
-        while aggregate_species.n_residues > 0.5:
+        while aggregate_species.n_residues > 0:
             res_temp = aggregate_species[0].atoms.residues
             search_set = res_temp
             cluster_temp = res_temp
-            while search_set.n_residues > 0.5:
+            while search_set.n_residues > 0:
                 search_set, cluster_temp = self._grow_cluster(cut_off, search_set, cluster_temp)
             cluster_list.append(cluster_temp)
             aggregate_species = aggregate_species.difference(cluster_temp)
@@ -182,7 +184,7 @@ class ClusterEnsemble():
         #    )
         new_cluster_res = MDAnalysis.core.groups.ResidueGroup(
             self.neighbour_search.search(
-                atoms=search_set.atoms, 
+                atoms=search_set.atoms.select_atoms('name CM CE'),
                 radius=cut_off, 
                 level="R"
                 )
@@ -191,4 +193,3 @@ class ClusterEnsemble():
         cluster_temp = cluster_temp.union(new_cluster_res)
 
         return search_set, cluster_temp
-
