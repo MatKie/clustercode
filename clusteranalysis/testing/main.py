@@ -5,9 +5,10 @@ from ClusterEnsemble import ClusterEnsemble
 
 tpr  = "/home/trl11/Virtual_Share/gromacs_test/npt.tpr"
 traj = "/home/trl11/Virtual_Share/gromacs_test/npt.xtc"
-#tpr  = "../files/npt.tpr"
-#traj = "../files/npt.xtc"
-#traj  = "/home/mk8118/OneDrive/2019/simulations/gromacs/SDS/check_ensembles/NVT/PME_revised/nh_10/base/nvt.trr"
+# tpr  = "../files/npt.tpr"
+# traj = "../files/npt.xtc"
+# traj  = "/home/mk8118/OneDrive/2019/simulations/gromacs/SDS/\
+# check_ensembles/NVT/PME_revised/nh_10/base/nvt.trr"
 
 #cluster_analysis(tpr, ["CE", "CM"], traj)
 ClstrEns = ClusterEnsemble(tpr, traj, ["CE", "CM"])
@@ -18,7 +19,9 @@ ClstrEns.cluster_analysis(algorithm="dynamic")
 
 exit()
 
-for idx_time, (static_clus_list, dynamic_clus_list) in enumerate(zip(clstr_ens_static, clstr_ens_dynamic)):
+for idx_time, (static_clus_list, dynamic_clus_list) in enumerate(zip(
+                                clstr_ens_static, clstr_ens_dynamic)
+                                ):
 	diff_clust_count = len(static_clus_list) - len(dynamic_clus_list)
 	print("_________________________________________________________")
 	print("Frame: {:d}".format(idx_time))
