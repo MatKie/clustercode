@@ -199,7 +199,7 @@ class ClusterEnsemble():
                 merged_index.append(i)
                 # If the cluster is not completely new there will be a
                 # second intersection and we delete the previous cluster
-                G# Note that len(merged_index) goes back to 1 afterwards
+                # Note that len(merged_index) goes back to 1 afterwards
                 # and cluster_temp is the new merged cluster
                 if len(merged_index) > 1.5:
                     del cluster_list[merged_index[0]]
