@@ -11,7 +11,7 @@ from BaseUniverse import BaseUniverse
 ToDo:
     Make sure PBC do what we want 
     Ensure behaviour for gro files
-    Make paths to baseuniverse universal
+    Make paths to BaseUniverse universal
 """
 
 class ClusterEnsemble(BaseUniverse):
@@ -99,7 +99,7 @@ class ClusterEnsemble(BaseUniverse):
         """
         self.universe = self._get_universe(self._coord, traj=self._traj)
 
-        self.aggregate_species = self._get_aggregate_species(self.universe,
+        self.aggregate_species = self._select_species(self.universe,
                                                             style=style)
         
         self.cluster_list = []
@@ -288,7 +288,7 @@ class ClusterEnsemble(BaseUniverse):
         # Find neighbours and cast into ResidueGroup
         new_cluster_res = MDAnalysis.core.groups.ResidueGroup(
             self.neighbour_search.search(
-                atoms=self._get_aggregate_species(search_set.atoms, style="atom"),
+                atoms=self._select_species(search_set.atoms, style="atom"),
                 radius=cut_off, 
                 level="R"
                 )

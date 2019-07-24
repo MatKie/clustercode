@@ -11,7 +11,7 @@ from BaseUniverse import BaseUniverse
 ToDo:
     Make sure PBC do what we want 
     Ensure behaviour for gro files
-    Make paths to baseuniverse universal
+    Make paths to BaseUniverse universal
 """
 
 class OrderParameterEnsemble(BaseUniverse):

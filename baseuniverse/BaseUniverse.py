@@ -69,8 +69,8 @@ class BaseUniverse():
         
         return universe
     
-    def _get_aggregate_species(self, atoms, style="atom"):
-        """Getting a dictionary of the species on which we determine aggregation
+    def _select_species(self, atoms, style="atom"):
+        """Get an AtomGroup of the selected species 
         
         Parameter
         ---------
