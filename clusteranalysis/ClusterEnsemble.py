@@ -302,7 +302,7 @@ class ClusterEnsemble(BaseUniverse):
         return search_set, cluster_temp
 
     def plot_histogram(self, ax, frames=(0, 1, 1), maxbins=False, 
-                       density=True, filename=None, *args, **kwargs):
+                       density=True, *args, **kwargs):
         """Method to plot histograms for different timeframes
         
         Examples
@@ -327,9 +327,6 @@ class ClusterEnsemble(BaseUniverse):
         density : bool, optional
             Whether or not to plot for absolute occurences or 
             probabilities
-        filename : string, optional
-            If string is given, save the plot under that name. Specify
-            if you want pdf, png etc..
 
         Returns
         -------
@@ -341,7 +338,7 @@ class ClusterEnsemble(BaseUniverse):
         maxframe = max([index[1] for index in frames])
         if maxframe > cluster_list_length: 
             raise ValueError("Upper Frame limit out of range, maximal frame \
-                              Number is {:d}".format(cluster_list_length))
+Number is {:d}".format(cluster_list_length))
 
         # Get the size distribution of all frames for all frames
         masterlist = []
@@ -364,11 +361,6 @@ class ClusterEnsemble(BaseUniverse):
         else: ystring = "Probability"
         ax.set_ylabel(ystring)
      
-        if filename is None:
-            plt.show()
-        else:
-            plt.savefig(filename)
-        
     def _get_cluster_distribution(self, frames):
         """Helper for plot_histogram to get a cluster distribution
         
