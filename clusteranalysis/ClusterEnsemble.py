@@ -53,7 +53,7 @@ class ClusterEnsemble(BaseUniverse):
         super().__init__(coord, traj, cluster_objects)
 
     def cluster_analysis(self, cut_off=7.5, times=None, style="atom", 
-                    measure="b2b", algorithm="dynamic"):
+                    measure="b2b", algorithm="dynamic", work_in="Residue"):
         """High level function clustering molecules together
         
         Example
@@ -84,6 +84,8 @@ class ClusterEnsemble(BaseUniverse):
             "dynamic" or "static". The static one is slower. It 
             loops over all atoms and then merges cluster, whereas
             the dynamic algorithm grows clusters dynamically.
+        type : string, optional
+            "Residue" or "Atom". Either work in (and output) ResidueGroups or AtomGroups. The former may be faster for systems in which all parts of the same molecule are always in the same cluster, whereas the latter is useful for systems in which different parts of the same molecule can be in different clusters (i.e. block copolymers).
 
         Raises
         ------ 
@@ -99,9 +101,11 @@ class ClusterEnsemble(BaseUniverse):
         """
         self.universe = self._get_universe(self._coord, traj=self._traj)
 
+        self.style = style
+
         self.aggregate_species = self._select_species(self.universe,
-                                                            style=style)
-        
+                                                            style=self.style)
+
         self.cluster_list = []
 
         # Initialise the neighboursearch object
@@ -111,14 +115,22 @@ class ClusterEnsemble(BaseUniverse):
             bucket_size=10
             )
 
+        if type == "Residue":
+            self.search_level = "R"
+        elif type == "Atom":
+            self.search_level = "A"
+        else:
+            raise NotImplementedError("{:s} is unspecified work_in variable".format(work_in))
+
         if algorithm == "static":
             cluster_algorithm = self._get_cluster_list_static
-        elif algorithm == "dynamic":
-            cluster_algorithm = self._get_cluster_list_dynamic
+        elif algorithm == "dynamic" and work_in == "Residue":
+            cluster_algorithm = self._get_cluster_list_dynamic_res
+        elif algorithm == "dynamic" and work_in == "Atom":
+            cluster_algorithm = self._get_cluster_list_dynamic_atom
         else:
             raise NotImplementedError("{:s} is unspecified algorithm".format(
                                                                 algorithm))
-        
         # Loop over all trajectory times
         for time in self.universe.trajectory:
             if times is not None:
@@ -150,13 +162,16 @@ class ClusterEnsemble(BaseUniverse):
         cluster_list : list of sets of ClusterIDs
         """   
         cluster_list = []
-        aggregate_species_dict = self.aggregate_species.groupby("resids")
+        if self.search_level == "R":
+            aggregate_species_atoms = self.aggregate_species.groupby("resids").values()
+        elif self.search_level == "A":
+            aggregate_species_atoms = self.aggregate_species
         
-        for atoms in aggregate_species_dict.values():
+        for atoms in aggregate_species_atoms:
             cluster_temp = set(self.neighbour_search.search(
                                                     atoms=atoms, 
                                                     radius=cut_off, 
-                                                    level="R"
+                                                    level=self.search_level
                                                     ))
             
             cluster_list = self._merge_cluster(cluster_list, cluster_temp)   
@@ -211,7 +226,7 @@ class ClusterEnsemble(BaseUniverse):
         
         return cluster_list
 
-    def _get_cluster_list_dynamic(self, cut_off=7.5):
+    def _get_cluster_list_dynamic_res(self, cut_off=7.5):
         """Get Cluster from single frame with dynamic algorithm
 
         Faster algorithm to find clusters. We single out one 
@@ -228,10 +243,11 @@ class ClusterEnsemble(BaseUniverse):
 
         Returns
         -------
-        cluster_list : list of sets of ClusterIDs
+        cluster_list : list of ResGroups
 
         """  
         cluster_list = []
+
         aggregate_species = self.aggregate_species.residues
         
         # Loop until all molecules have been in clusters
@@ -244,7 +260,7 @@ class ClusterEnsemble(BaseUniverse):
             # In this loop search set gets updated to only have new
             # neighours and cluster_temp grows
             while search_set.n_residues > 0:
-                search_set, cluster_temp = self._grow_cluster(cut_off, 
+                search_set, cluster_temp = self._grow_cluster_res(cut_off, 
                                 search_set, cluster_temp)
             # Once no more neighbours are found add the cluster to
             # the list and subtract the cluster from the aggregate
@@ -255,7 +271,7 @@ class ClusterEnsemble(BaseUniverse):
             
         return cluster_list
 
-    def _grow_cluster(self, cut_off, search_set, cluster_temp):
+    def _grow_cluster_res(self, cut_off, search_set, cluster_temp):
         """Code to grow a cluster (cluster_temp) and obtain new search set
         (search_set)
 
@@ -284,14 +300,102 @@ class ClusterEnsemble(BaseUniverse):
             to include the latest found ones
 
         """
-        
+
         # Find neighbours and cast into ResidueGroup
         new_cluster_res = MDAnalysis.core.groups.ResidueGroup(
             self.neighbour_search.search(
-                atoms=self._select_species(search_set.atoms, style="atom"),
+                atoms=self._select_species(search_set.atoms, style=self.style),
                 radius=cut_off, 
-                level="R"
+                level=self.search_level
                 )
+            )
+
+        # The new search_set should only have atoms not already in the cluster
+        search_set = new_cluster_res.difference(cluster_temp)
+        # The new temporary cluster is updated
+        cluster_temp = cluster_temp.union(new_cluster_res)
+
+        return search_set, cluster_temp
+
+    def _get_cluster_list_dynamic_atom(self, cut_off=7.5):
+        """Get Cluster from single frame with dynamic algorithm
+
+        Faster algorithm to find clusters. We single out one 
+        atom and find all its neighbours, then we call the same
+        function again and find the neighbours neighbours,
+        while excluding already found neighbours. We do this until 
+        we cant find any more neighbours. Then we choose another 
+        atom until we do not have any atoms left.
+
+        Parameters
+        ----------
+        cut_off : float, optional
+            Radius around which to search for neighbours 
+
+        Returns
+        -------
+        cluster_list : list of AtomGroups
+        """  
+        cluster_list = []
+
+        aggregate_species = self.aggregate_species
+        
+        # Loop until all molecules have been in clusters
+        while aggregate_species.n_atoms > 0:
+            # Initialize the search_set and temporary cluster w/
+            # one molecule.
+            atom_temp = MDAnalysis.core.groups.AtomGroup([aggregate_species[0]])
+            search_set = atom_temp
+            cluster_temp = atom_temp
+            # In this loop search set gets updated to only have new
+            # neighours and cluster_temp grows
+            while search_set.n_atoms > 0:
+                search_set, cluster_temp = self._grow_cluster_atom(cut_off, 
+                                search_set, cluster_temp)
+            # Once no more neighbours are found add the cluster to
+            # the list and subtract the cluster from the aggregate
+            # species.
+            # Possible Improvement: Update NeighbourSearch object
+            cluster_list.append(cluster_temp)
+            aggregate_species = aggregate_species.difference(cluster_temp)
+            
+        return cluster_list
+
+    def _grow_cluster_atom(self, cut_off, search_set, cluster_temp):
+        """Code to grow a cluster (cluster_temp) and obtain new search set
+        (search_set)
+
+        This algorithm looks for neighbours of atoms in search_set 
+        and adds them to the temporary cluster. The search_set
+        is updated to only include newly found neighbours not 
+        already present in search_set. The neighbours searching
+        still looks in all the atoms present in the aggregate_species.
+
+        Parameters
+        ----------
+        cut_off : float, optional
+            Radius around which to search for neighbours 
+        search_set : MDAnalysis AtomGroup 
+            Atoms for which to look for neighbours
+        cluster_temp : MDAanalysis AtomGroup
+            All the atoms/residues currently in the cluster
+
+        Returns
+        ------- 
+        search_set : MDAnalysis AtomGroup 
+            Atoms for which to look for neighbours updated to be
+            the latest found ones
+        cluster_temp : MDAanalysis AtomGroup
+            All the atoms/residues currently in the cluster updated 
+            to include the latest found ones
+
+        """
+
+        # Find neighbours
+        new_cluster_res = self.neighbour_search.search(
+            atoms=search_set.atoms,
+            radius=cut_off, 
+            level=self.search_level
             )
 
         # The new search_set should only have atoms not already in the cluster

@@ -5,5 +5,5 @@ from OrderParameterEnsemble import OrderParameterEnsemble
 tpr  = "../files/run.tpr"
 traj = "../files/traj.xtc"
 
-OrderParamEns = OrderParameterEnsemble(tpr, traj, ["CE", "CM"])
-print(OrderParamEns.selection)
+OrderParamEns = OrderParameterEnsemble(tpr, traj, ["ME"])
+OrderParamEns.calc_nematic_op()
