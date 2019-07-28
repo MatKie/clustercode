@@ -90,7 +90,7 @@ class ClusterEnsemble(BaseUniverse):
         Raises
         ------ 
         NotImplementedError
-            If an unspecified algorithm is choosen
+            If an unspecified algorithm or work_in is choosen
         
         ToDo
         ----

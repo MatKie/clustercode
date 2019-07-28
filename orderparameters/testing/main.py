@@ -6,4 +6,4 @@ tpr  = "../files/run.tpr"
 traj = "../files/traj.xtc"
 
 OrderParamEns = OrderParameterEnsemble(tpr, traj, ["ME"])
-OrderParamEns.calc_nematic_op()
+OrderParamEns.nematic_op_analysis(times=(0,100000),custom_list=[[1],[2]])
