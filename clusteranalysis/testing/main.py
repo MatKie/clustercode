@@ -14,7 +14,7 @@ traj = "/home/trl11/Virtual_Share/gromacs_test/npt.xtc"
 ClstrEns = ClusterEnsemble(tpr, traj, ["CE", "CM"])
 #ClstrEns.cluster_analysis(algorithm="static") 
 #clstr_ens_static = ClstrEns.cluster_list
-ClstrEns.cluster_analysis(algorithm="dynamic") 
+ClstrEns.cluster_analysis(algorithm="dynamic",work_in="Atom") 
 #clstr_ens_dynamic = ClstrEns.cluster_list
 
 exit()
