@@ -7,9 +7,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import itertools
+import scipy
 sys.path.append("../../baseuniverse/")
 from BaseUniverse import BaseUniverse
-import scipy
+
 
 #from MDAnalysis.core.groups import ResidueGroup
 """
@@ -136,7 +137,7 @@ class OrderParameterEnsemble(BaseUniverse):
             saupe_tensor = self._get_saupe_tensor(principal_axis_list)
             nematic_op, system_director = self._get_dominant_eig(saupe_tensor)
 
-            self.nematic_op_lRaiseist.append(nematic_op)
+            self.nematic_op_list.append(nematic_op)
             self.system_director_list.append(system_director)
             sum_saupe_tensor += saupe_tensor
 
@@ -265,7 +266,7 @@ class OrderParameterEnsemble(BaseUniverse):
         # Rewind Trajectory to beginning for other analysis
         self.universe.trajectory.rewind()
 
-    def structure_factor_analysis(self, directors=None, times=None, style="molecule", pbc_style=None, pos_style="com", q_style="strict", q_min=0, q_max=1, q_step = 0.01, active_dim=[1,1,1], custom_traj=None, chunk_size=10000, plot_style="scatter", n_bins = 500):
+    def structure_factor_analysis(self, directors=None, times=None, style="molecule", pbc_style=None, pos_style="com", q_style="strict", q_min=0, q_max=1, q_step = 0.01, active_dim=[1,1,1], custom_traj=None, chunk_size=10000, plot_style="scatter", n_bins = 1000):
         """High level function for calculating the structure factor as a function of the wave vector q.
         
         Example
@@ -391,13 +392,12 @@ class OrderParameterEnsemble(BaseUniverse):
         # Rewind Trajectory to beginning for other analysis
         self.universe.trajectory.rewind()
 
-        print(self.Sq_array)
-
         # Plot structure factor
         if plot_style is not None:
             if plot_style is "smooth":
-                norm_q, smooth_Sq = self._smooth_structure_factor(q_min, q_max, n_bins)
-                plt.plot(norm_q,smooth_Sq)
+                self.smooth_q_norm, self.smooth_Sq = self._smooth_structure_factor(q_min, q_max, n_bins)
+                plt.plot(self.smooth_q_norm,self.smooth_Sq)
+                #plt.scatter(self.q_norm_array,self.Sq_array)
                 plt.show()
             elif plot_style == "scatter":
                 plt.scatter(self.q_norm_array,self.Sq_array)
@@ -926,5 +926,5 @@ class OrderParameterEnsemble(BaseUniverse):
 
         norm_q_count = norm_q_count + norm_q_count_add
 
-        norm_Sq = smooth_Sq / norm_q_count
+        smooth_Sq = smooth_Sq / norm_q_count
         return norm_q, smooth_Sq
