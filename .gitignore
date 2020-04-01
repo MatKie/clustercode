@@ -4,3 +4,4 @@ __*
 *.swp
 *.xtc
 nogit*
+*.egg-info
