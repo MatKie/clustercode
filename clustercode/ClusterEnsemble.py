@@ -85,7 +85,12 @@ class ClusterEnsemble(BaseUniverse):
             loops over all atoms and then merges cluster, whereas
             the dynamic algorithm grows clusters dynamically.
         work_in : string, optional
-            "Residue" or "Atom". Either work in (and output) ResidueGroups or AtomGroups. The former may be faster for systems in which all parts of the same molecule are always in the same cluster, whereas the latter is useful for systems in which different parts of the same molecule can be in different clusters (i.e. block copolymers).
+            "Residue" or "Atom". Either work in (and output) ResidueGroups 
+            or AtomGroups. The former may be faster for systems in which 
+            all parts of the same molecule are always in the same cluster, 
+            whereas the latter is useful for systems in which different 
+            parts of the same molecule can be in different clusters 
+            (i.e. block copolymers).
 
         Raises
         ------ 

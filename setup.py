@@ -8,5 +8,5 @@ setup(
     author_email='m.kiesel18@imperial.ac.uk',
     description='Modules designed to evaluate structural properties',
     packages=find_packages(),    
-    install_requires=['numpy', 'mdanalysis => 0.19.2'],
+    install_requires=['numpy', 'matplotlib', 'scipy','MDAnalysis => 0.19.2'],
 )
