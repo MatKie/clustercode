@@ -1,3 +1,3 @@
 from .ClusterEnsemble import ClusterEnsemble
-from .OrderParamterEnsemble import OrderParameterEnsemble
+from .OrderParameterEnsemble import OrderParameterEnsemble
 

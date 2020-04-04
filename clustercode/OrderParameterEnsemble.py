@@ -8,8 +8,7 @@ import numpy as np
 import sys
 import itertools
 import scipy
-sys.path.append("../../baseuniverse/")
-from BaseUniverse import BaseUniverse
+from clustercode.BaseUniverse import BaseUniverse
 
 
 #from MDAnalysis.core.groups import ResidueGroup

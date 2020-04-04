@@ -3,9 +3,8 @@ import MDAnalysis.lib.NeighborSearch as NeighborSearch
 import warnings
 import matplotlib as mlp
 import matplotlib.pyplot as plt
-import sys
-sys.path.append("../../baseuniverse/")
-from BaseUniverse import BaseUniverse 
+from clustercode.BaseUniverse import BaseUniverse 
+
 #from MDAnalysis.core.groups import ResidueGroup
 """
 ToDo:
