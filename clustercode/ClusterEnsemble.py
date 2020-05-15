@@ -377,7 +377,7 @@ class ClusterEnsemble(BaseUniverse):
         ax : matplotlib axis object
         """
         # Check if the frames desired are available
-        if type(frames) is not list:
+        if not isinstance(frames, list):
             frames = [frames]
         cluster_list_length = len(self.cluster_list)
         maxframe = max([index[1] for index in frames])
