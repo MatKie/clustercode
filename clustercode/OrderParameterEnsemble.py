@@ -10,37 +10,48 @@ import itertools
 import scipy
 from clustercode.BaseUniverse import BaseUniverse
 
-
-#from MDAnalysis.core.groups import ResidueGroup
 """
 ToDo:
     Make sure PBC do what we want 
     Ensure behaviour for gro files
-    Make paths to BaseUniverse universal784803
 """
 
 class OrderParameterEnsemble(BaseUniverse):
-    """A class used to perform analysis on Clusters of molecules
+    """A class used to perform analysis of the structuring of the 
+    molecules or clusters of molecules
 
     Attributes
     ----------
+    selection : list of str
+        Strings used for the definition of species which form clusters. 
+        Can be atom names or molecule names.
     universe : MDAnalysis universe object
         Universe of the simulated system 
-    cluster_objects : list of str
-        Strings used for the definition of species which form 
-        clusters. Can be atom names or molecule names.
+    selected_species : MDAanalysis Atom(s)Group object
+        The atoms that have been selected for analysis
     cluster_list : list of list of MDAnalysis ResidueGroups
         a list of ResidueGroups forms one cluster at a given time,
         for multiple times a list of these lists is produced.
 
     Methods
     -------
-    nematic_op_analysis(self, times=None, style="molecule", principal_axis="inertial", custom_traj=None)
+    nematic_op_analysis(self, times=None, style="molecule", 
+                        principal_axis="inertial", custom_traj=None)
         Calculates nematic order parameter and system director for all
         timesteps. 
-    translational_op_analysis(self, director, times=None, style="molecule", pbc_style=None, pos_style="com", search_param=None, custom_traj=None)
-        Calculates translational order parameter and translational spacing for input director or list of directors.
-    structure_factor_analysis(self, directors=None, times=None, style="molecule", pbc_style=None, pos_style="com", q_style="strict", q_min=0, q_max=1, q_step = 0.01, active_dim=[1,1,1], custom_traj=None, plot_style="scatter", chunk_size=10000, n_bins = 500)
+    translational_op_analysis(self, director, times=None, 
+                              style="molecule", pbc_style=None, 
+                              pos_style="com", search_param=None, 
+                              custom_traj=None)
+        Calculates translational order parameter and translational 
+        spacing for input director or list of directors.
+    structure_factor_analysis(self, directors=None, times=None, 
+                              style="molecule", pbc_style=None, 
+                              pos_style="com", q_style="strict", 
+                              q_min=0, q_max=1, q_step = 0.01, 
+                              active_dim=[1,1,1], custom_traj=None, 
+                              plot_style="scatter", chunk_size=10000, 
+                              n_bins = 500)
         Calculates structure factor as a function of the wave vector.
 
     """
@@ -56,12 +67,16 @@ class OrderParameterEnsemble(BaseUniverse):
             Path to a trajectory like file. E.g. a xtc or trr file. 
             Needs to fit the coord file
         selection : list of string
-            Strings used for the definition of species to be studied. Can be atom names or molecule names.
+            Strings used for the definition of species to be studied. 
+            Can be atom names or molecule names.
         """
         super().__init__(coord, traj, selection)
 
-    def nematic_op_analysis(self, times=None, style="molecule", principal_axis="inertial", custom_traj=None, pbc_style=None):
-        """High level function for calculating the nematic order parameter
+    def nematic_op_analysis(self, times=None, style="molecule", 
+                            principal_axis="inertial", custom_traj=None, 
+                            pbc_style=None):
+        """High level function for calculating the nematic order 
+        parameter
         
         Example
         -------
@@ -70,19 +85,26 @@ class OrderParameterEnsemble(BaseUniverse):
         Parameters
         ----------
         times : list of floats, optional
-            If None, do for whole trajectory. If an interval
-            is given like this (t_start, t_end) only do from start
-            to end.
+            If None, do for whole trajectory. If an interval is given 
+            like this (t_start, t_end) only do from start to end, by 
+            default None.
         style : string, optional
             "atom" or "molecule". Dependent on this, the 
             cluster_objects attribute is interpreted as molecule
             or atoms within a molecule. 
         principal_axis : string, optional
-            "inertial" or "end-to-end". Defines the principal axis as either the end to end vector of the molecule or the dominant axis of the inertial tensor.
+            "inertial" or "end-to-end". Defines the principal axis as 
+            either the end to end vector of the molecule or the dominant 
+            axis of the inertial tensor.
         custom_traj : list of list of AtomGroup, optional
-            To be specified if the analysis is to be applied to clusters or other custom AtomGroups (i.e. if you want to consider different parts of the same molecule separately). The list should be the same length as the trajectory, each list of AtomGroups representing a trajectory timestep.
+            To be specified if the analysis is to be applied to clusters 
+            or other custom AtomGroups (i.e. if you want to consider 
+            different parts of the same molecule separately). The list 
+            should be the same length as the trajectory, each list of 
+            AtomGroups representing a trajectory timestep.
         pbc_style : string, optional
-            Gromacs pbc definitions: mol, atom, nojump
+            Gromacs pbc definitions: mol or atom, by default
+            None
 
         Raises
         ------ 
@@ -104,15 +126,19 @@ class OrderParameterEnsemble(BaseUniverse):
 
         # Select which principal axis in the AtomGroup to use
         if principal_axis == "inertial":
-            self.principal_axis = self._get_inertial_axis
+            principal_axis = self._get_inertial_axis
         elif principal_axis == "end-to-end":
-            self.principal_axis = self._get_end_to_end_vector
+            principal_axis = self._get_end_to_end_vector
         else:
-            raise NotImplementedError("{:s} is unspecified molecular axis".format(principal_axis))
+            raise NotImplementedError("{:s} is unspecified molecular axis"\
+                                                    .format(principal_axis))
 
-        # If custom_traj is not specified initialise select_species as a list of AtomGroups (one for each residue)
+        # If custom_traj is not specified initialise select_species as a
+        # list of AtomGroups (one for each residue)
         if custom_traj is None:
-            selected_species_list = [self._select_species(residue.atoms, style=style) for residue in self.selected_species.residues]
+            selected_species_list = [
+                self._select_species(residue.atoms, style=style)
+                for residue in self.selected_species.residues]
 
         # Initialise outputs
         self.nematic_op_list = []
@@ -132,7 +158,7 @@ class OrderParameterEnsemble(BaseUniverse):
             else:
                 atom_group_list = selected_species_list
 
-            principal_axis_list = self.principal_axis(atom_group_list)
+            principal_axis_list = principal_axis(atom_group_list)
             saupe_tensor = self._get_saupe_tensor(principal_axis_list)
             nematic_op, system_director = self._get_dominant_eig(saupe_tensor)
 
@@ -144,22 +170,30 @@ class OrderParameterEnsemble(BaseUniverse):
             print("Nematic order parameter: {:.3f}".format(nematic_op))
             
         # Obtain the ensemble average saupe_tensor
-        self.ensemble_saupe_tensor = sum_saupe_tensor/len(self.nematic_op_list)
+        ensemble_saupe_tensor = sum_saupe_tensor/len(self.nematic_op_list)
 
-        # Calculate the mean nematic order parameter and system director from the ensemble average saupe tensor
-        self.mean_nematic_op, self.mean_system_director = self._get_dominant_eig(self.ensemble_saupe_tensor)
+        # Calculate the mean nematic order parameter and system director 
+        # from the ensemble average saupe tensor
+        self.mean_nematic_op, self.mean_system_director = (
+            self._get_dominant_eig(ensemble_saupe_tensor))
 
         self.stdev_nematic_op = np.std(self.nematic_op_list)
 
         print("****MEAN:")
-        print("Mean nematic order parameter: {:.3f} +/- {:.3f}".format(self.mean_nematic_op,self.stdev_nematic_op))
-        print("Mean system director: {:s}".format(np.array2string(self.mean_system_director)))
+        print("Mean nematic order parameter: {:.3f} +/- {:.3f}".format(
+            self.mean_nematic_op,self.stdev_nematic_op))
+        print("Mean system director: {:s}".format(np.array2string(
+            self.mean_system_director)))
 
         # Rewind Trajectory to beginning for other analysis
         self.universe.trajectory.rewind()
 
-    def translational_op_analysis(self, director, times=None, style="molecule",pbc_style=None, pos_style="com", search_param=[0.1, 50, 500], custom_traj=None, plot=False):
-        """High level function for calculating the translational order parameter
+    def translational_op_analysis(self, director, times=None, style="molecule",
+                                  pbc_style=None, pos_style="com", 
+                                  search_param=[0.1, 50, 500], 
+                                  custom_traj=None, plot=False):
+        """High level function for calculating the translational order 
+        parameter
         
         Example
         -------
@@ -168,7 +202,10 @@ class OrderParameterEnsemble(BaseUniverse):
         Parameters
         ----------
         director : numpy array(3) or list of numpy array(3)
-            Specify one if the same director is applied to all timesteps in the trajectory or a list if a different director is used each timestep. Note it should be a unit vector or list of unit vectors
+            Specify one if the same director is applied to all timesteps 
+            in the trajectory or a list if a different director is used 
+            each timestep. Note it should be a unit vector or list of 
+            unit vectors
         times : list of floats, optional
             If None, do for whole trajectory. If an interval
             is given like this (t_start, t_end) only do from start
@@ -182,11 +219,20 @@ class OrderParameterEnsemble(BaseUniverse):
        pos_style : string, optional
             Center of mass ("com") or "atom"
         search_space : [float, float, int], optional
-            Specify [min, max, n_points], where min and max are the minimum and maximum translational spacings considered in Angstrom and n_points is the number of points between these values.
+            Specify [min, max, n_points], where min and max are the 
+            minimum and maximum translational spacings considered in 
+            Angstrom and n_points is the number of points between these 
+            values.
         custom_traj : list of list of AtomGroup
-            To be specified if the analysis is to be applied to clusters or other custom AtomGroups (i.e. if you want to consider different parts of the same molecule separately). The list should be the same length as the trajectory, each list of AtomGroups representing a trajectory timestep.
+            To be specified if the analysis is to be applied to clusters
+            or other custom AtomGroups (i.e. if you want to consider 
+            different parts of the same molecule separately). The list 
+            should be the same length as the trajectory, each list of 
+            AtomGroups representing a trajectory timestep.
         plot : boolean, optional
-            If True the translational order parameter is plotted as a function of the spacing for the first time in the trajectory or specified in times.
+            If True the translational order parameter is plotted as a 
+            function of the spacing for the first time in the trajectory 
+            or specified in times.
         
         ToDo
         ----
@@ -203,7 +249,9 @@ class OrderParameterEnsemble(BaseUniverse):
 
         director = self._director_check(times, director)
         
-        # Set search_param if it is not specified by user. If it is specified check its length and make sure the minimum value is not zero.
+        # Set search_param if it is not specified by user. If it is 
+        # specified check its length and make sure the minimum value is 
+        # not zero.
         if search_param is None:
             search_param = [0.1, 50, 500]
         else:
@@ -225,14 +273,18 @@ class OrderParameterEnsemble(BaseUniverse):
                 if time.time > max(times) or time.time < min(times):
                     continue
 
-            position_array = self._get_position_array(style, pos_style,custom_traj)
+            position_array = self._get_position_array(style, pos_style, 
+                                                      custom_traj)
             
             # Optimise the translational order parameter and determine the spacing
             trans_op_k = []
             spacing_list = []
             for spacing in spacing_array:
                 k_vector = 2*np.pi/spacing * director[director_idx]
-                trans_op_k.append(np.sqrt(self._get_system_fourier_transform_mod2(position_array, k_vector, 1))/float(len(position_array)))
+                trans_op_k.append(np.sqrt(
+                    self._get_system_fourier_transform_mod2(position_array, 
+                                                            k_vector, 1)
+                    )/float(len(position_array)))
             
             idx_max = np.argmax(trans_op_k)
             trans_op = trans_op_k[idx_max]
@@ -240,7 +292,8 @@ class OrderParameterEnsemble(BaseUniverse):
 
             print("****TIME: {:8.2f}".format(time.time))
             print("Translational order parameter: {:.3f}".format(trans_op))
-            print("Translational spacing: {:.3f} Angstrom".format(trans_spacing))
+            print("Translational spacing: {:.3f} Angstrom".format(
+                                                                trans_spacing))
             
             self.trans_op_list.append(trans_op)
             self.trans_spacing_list.append(trans_spacing)
@@ -259,13 +312,20 @@ class OrderParameterEnsemble(BaseUniverse):
         self.stdev_trans_spacing = np.std(self.trans_spacing_list)
         
         print("****MEAN:")
-        print("Mean translational order parameter: {:.3f} +/- {:.3f}".format(self.mean_trans_op,self.stdev_trans_op))
-        print("Mean translational spacing: {:.3f} +/- {:.3f} Angstrom".format(self.mean_trans_spacing,self.stdev_trans_spacing))
+        print("Mean translational order parameter: {:.3f} +/- {:.3f}"\
+            .format(self.mean_trans_op,self.stdev_trans_op))
+        print("Mean translational spacing: {:.3f} +/- {:.3f} Angstrom"\
+            .format(self.mean_trans_spacing,self.stdev_trans_spacing))
 
         # Rewind Trajectory to beginning for other analysis
         self.universe.trajectory.rewind()
 
-    def structure_factor_analysis(self, directors=None, times=None, style="molecule", pbc_style=None, pos_style="com", q_style="strict", q_min=0, q_max=1, q_step = 0.01, active_dim=[1,1,1], custom_traj=None, chunk_size=10000, plot_style="scatter", n_bins = 1000):
+    def structure_factor_analysis(self, directors=None, times=None, 
+                                  style="molecule", pbc_style=None, 
+                                  pos_style="com", q_style="strict", q_min=0, 
+                                  q_max=1, q_step = 0.01, active_dim=[1,1,1], 
+                                  custom_traj=None, chunk_size=10000, 
+                                  plot_style="scatter", n_bins = 1000):
         """High level function for calculating the structure factor as a function of the wave vector q.
         
         Example
@@ -285,7 +345,7 @@ class OrderParameterEnsemble(BaseUniverse):
             cluster_objects attribute is interpreted as molecule
             or atoms within a molecule. 
         pbc_style : string, optional
-            Gromacs pbc definitions: mol, atom, nojump
+            Gromacs pbc definitions: mol or atom
         pos_style : string, optional
             Center of mass ("com") or "atom"
         q_style : string, optional
@@ -405,16 +465,21 @@ class OrderParameterEnsemble(BaseUniverse):
                 NotImplementedError("plot_style {:s} has not been implemented".format(plot_style))
 
     def _custom_traj_check(self, times, custom_traj):
-        """ Check if custom_traj is the correct length relative to the trajectory and times specified. And initialise variable self.custom_traj_idx
+        """ Check if custom_traj is the correct length relative to the 
+        trajectory and times specified. And initialises variable 
+        self.custom_traj_idx
         
         Parameters
         ----------
         times : list of floats
-            If None, do for whole trajectory. If an interval
-            is given like this (t_start, t_end) only do from start
-            to end.
+            If None, do for whole trajectory. If an interval is given 
+            like this (t_start, t_end) only do from start to end.
         custom_traj : list of list of AtomGroup
-            To be specified if the analysis is to be applied to clusters or other custom AtomGroups (i.e. if you want to consider different parts of the same molecule separately). The list should be the same length as the trajectory, each list of AtomGroups representing a trajectory timestep.
+            To be specified if the analysis is to be applied to clusters 
+            or other custom AtomGroups (i.e. if you want to consider 
+            different parts of the same molecule separately). The list 
+            should be the same length as the trajectory, each list of 
+            AtomGroups representing a trajectory timestep.
 
         Raises
         ------ 
@@ -480,7 +545,9 @@ class OrderParameterEnsemble(BaseUniverse):
         """
         end_to_end_list = []
         for atom_group in atom_group_list:
-            end_to_end_list.append(atom_group[0]-atom_group[-1])
+            end_to_end_vec = atom_group[0].position- atom_group[-1].position
+            end_to_end_list.append(end_to_end_vec
+                                  /np.linalg.norm(end_to_end_vec))
 
         return end_to_end_list
 
@@ -887,9 +954,10 @@ class OrderParameterEnsemble(BaseUniverse):
         v3xv1 = np.cross(edge_vectors[2],edge_vectors[0])
         v1xv2 = np.cross(edge_vectors[0],edge_vectors[1])
 
-        recip_lat_vecs =np.asarray([2.0*np.pi*v2xv3/np.dot(edge_vectors[0],v2xv3),\
-                                   2.0*np.pi*v3xv1/np.dot(edge_vectors[1],v3xv1),\
-                                   2.0*np.pi*v1xv2/np.dot(edge_vectors[2],v1xv2)])
+        recip_lat_vecs =np.asarray(
+            [2.0*np.pi*v2xv3/np.dot(edge_vectors[0],v2xv3),
+             2.0*np.pi*v3xv1/np.dot(edge_vectors[1],v3xv1),
+             2.0*np.pi*v1xv2/np.dot(edge_vectors[2],v1xv2)])
         return recip_lat_vecs
 
     def _smooth_structure_factor(self, q_min, q_max, n_bins):
