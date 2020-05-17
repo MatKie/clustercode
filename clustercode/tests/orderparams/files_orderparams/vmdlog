@@ -1,24 +1,42 @@
 # VMD for LINUXAMD64, version 1.9.2 (December 29, 2014)
-# Log file '/home/trl11/Documents/Gromacs/PEG/vmdlog', created by user trl11
 display projection Orthographic
 display depthcue off
-menu graphics off
-menu graphics on
 mol addrep 0
-mol modselect 0 0 name GLY or name ES
-mol modselect 1 0 name CM or name CE
-mol modstyle 0 0 VDW 1.500000 20.000000
-mol modstyle 1 0 VDW 1.500000 20.000000
-mol modmaterial 1 0 Transparent
+mol addrep 0
+mol addrep 0
+mol addrep 0
+mol modselect 0 0 name GLY
+mol modselect 1 0 name ES
+mol modselect 2 0 name CM
+mol modselect 3 0 name CE
+mol modselect 4 0 name W2
+mol modstyle 0 0 VDW 1.230000 50.000000
+mol modstyle 1 0 VDW 1.410000 50.000000
+mol modstyle 2 0 VDW 1.500000 50.000000
+mol modstyle 3 0 VDW 1.610000 50.000000
+mol modstyle 4 0 VDW 1.340000 50.000000
+mol modmaterial 0 0 AOChalky
+mol modmaterial 1 0 AOChalky
+mol modmaterial 2 0 AOChalky
+mol modmaterial 3 0 AOChalky
+mol modmaterial 4 0 AOChalky
 mol showrep 0 0 1
 mol showrep 0 1 1
-menu color on
-color Name W blue
-color Name O red
-color Name E red
-menu color off
+mol showrep 0 2 1
+mol showrep 0 3 1
+mol showrep 0 4 1
+color change rgb 101 1.000000 0.500000 0.500000
+color change rgb 102 0.000000 0.500000 1.000000
+color Name W 102
+color Name G red
+color Name E 101
+color Name C lime
+axes location off
+display shadows off
+display ambientocclusion on
 color Display Background white
 rotate y by -90
 pbc box
+menu graphics on
 # VMD for LINUXAMD64, version 1.9.2 (December 29, 2014)
 # end of log file.
