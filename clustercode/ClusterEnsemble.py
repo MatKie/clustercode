@@ -51,15 +51,10 @@ class ClusterEnsemble(BaseUniverse):
         """
         super().__init__(coord, traj, cluster_objects)
 
-    def cluster_analysis(
-        self,
-        cut_off=7.5,
-        times=None,
-        style="atom",
-        measure="b2b",
-        algorithm="dynamic",
-        work_in="Residue",
-    ):
+
+    def cluster_analysis(self, cut_off=7.5, times=None, style="atom", 
+                    measure="b2b", algorithm="dynamic", work_in="Residue",
+                    traj_pbc_style=None, pbc=True):
         """High level function clustering molecules together
 
         Example
@@ -98,11 +93,23 @@ class ClusterEnsemble(BaseUniverse):
             whereas the latter is useful for systems in which different
             parts of the same molecule can be in different clusters
             (i.e. block copolymers).
+        traj_pbc_style : string, optional
+            Gromacs pbc definitions: mol or atom, by default
+            None
+        pbc : bool, optional
+            Whether to consider periodic boundary conditions in the 
+            neighbour search (for determining whether atoms belong to
+            the same cluster), by default True. Note that if work_in is 
+            set to "Residue" periodic boundary conditions are taken into
+            account implicitly for atoms in molecules passing across the 
+            boundaries.
 
         Raises
         ------
         NotImplementedError
             If an unspecified algorithm or work_in is choosen
+        ValueError
+            If pbc is not boolean
         
         ToDo
         ----
@@ -111,6 +118,9 @@ class ClusterEnsemble(BaseUniverse):
         -Add capabilities to only look at certain time windows
         -Get rid of traj and coord attributes
         """
+
+        self._set_pbc_style(traj_pbc_style)
+
         self.universe = self._get_universe(self._coord, traj=self._traj)
 
         self.style = style
@@ -120,9 +130,26 @@ class ClusterEnsemble(BaseUniverse):
         self.cluster_list = []
 
         # Initialise the neighboursearch object
-        self.neighbour_search = NeighborSearch.AtomNeighborSearch(
-            self.aggregate_species, box=self.universe.dimensions, bucket_size=10
-        )
+
+        if pbc == True:
+            self.neighbour_search = NeighborSearch.AtomNeighborSearch(
+            self.aggregate_species, 
+            box=self.universe.dimensions,
+            bucket_size=10
+            )
+        elif pbc == False:
+            if work_in == "Residue" and traj_pbc_style != "mol":
+                warnings.warn('work_in = "Residue" implicitly enforces pbc '\
+                              'for atoms in the same molecule if pbc_style '\
+                              '= "atom"', UserWarning)
+                print('Warning')
+            self.neighbour_search = NeighborSearch.AtomNeighborSearch(
+                self.aggregate_species, 
+                box=None,
+                bucket_size=10
+                )
+        else:
+            raise ValueError("pbc has to be boolean")
 
         if work_in == "Residue":
             self.search_level = "R"
