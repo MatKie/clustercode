@@ -12,7 +12,6 @@ this installs it interactively.
 
 
 Contributors:
-Matthias Kiesel
-Maziar Fayaz Torshizi 
+Matthias Kiesel,
 Tom Lindeboom
 
