@@ -1047,7 +1047,7 @@ class OrderParameterEnsemble(BaseUniverse):
         smooth_Sq = np.zeros((n_bins))
 
         bin_number = (self.q_norm_array * n_bins / (q_max - q_min)).astype(int)
-x
+
         for idx, Sq in zip(bin_number, self.Sq_array):
             norm_q_count[idx] += 1
             smooth_Sq[idx] += Sq
