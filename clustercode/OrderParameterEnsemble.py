@@ -29,23 +29,42 @@ class OrderParameterEnsemble(BaseUniverse):
         Universe of the simulated system 
     selected_species : MDAanalysis Atom(s)Group object
         The atoms that have been selected for analysis
-    cluster_list : list of list of MDAnalysis ResidueGroups
-        a list of ResidueGroups forms one cluster at a given time,
-        for multiple times a list of these lists is produced.
+    nematic_op_list : list of float
+        Nematic order parameter value at each time
+    system_director_list : list of numpy array(3)
+        System director at each time
+    mean_nematic_op : float
+        Mean nematic order parameter over all times
+    mean_system_director : : numpy array(3)
+        Mean system director over all times
+    trans_op_list : list of float
+        Translational order parameter values at each time
+    trans_spacing_list : list of float
+        Translational spacing values at each time in Angstrom
+    mean_trans_op : float
+        Mean translational order parameter over all times
+    stdev_trans_op : foat
+        Standard deviation of translational order parameter over all 
+        times
+    mean_trans_spacing : float
+        Mean translational spacing in Angstrom over all times
+    stdev_trans_spacing : float
+        Standard deviation of translational spacing in Angstrom over all 
+        times
 
     Methods
     -------
-    nematic_op_analysis(self, times=None, style="molecule", 
+    nematic_op_analysis(times=None, style="molecule", 
                         principal_axis="inertial", custom_traj=None)
         Calculates nematic order parameter and system director for all
         timesteps. 
-    translational_op_analysis(self, director, times=None, 
+    translational_op_analysis(director, times=None, 
                               style="molecule", pbc_style=None, 
                               pos_style="com", search_param=None, 
                               custom_traj=None)
         Calculates translational order parameter and translational 
         spacing for input director or list of directors.
-    structure_factor_analysis(self, directors=None, times=None, 
+    structure_factor_analysis(directors=None, times=None, 
                               style="molecule", pbc_style=None, 
                               pos_style="com", q_style="strict", 
                               q_min=0, q_max=1, q_step = 0.01, 
@@ -113,7 +132,6 @@ class OrderParameterEnsemble(BaseUniverse):
         
         ToDo
         ----
-        Test custom_traj feature
         """
 
         self._set_pbc_style(pbc_style)
@@ -153,8 +171,8 @@ class OrderParameterEnsemble(BaseUniverse):
             
             # Either use custrom_traj or the selected species
             if custom_traj is not None:
-                atom_group_list = custom_traj[self.custom_traj_idx]
-                self.custom_traj_idx+= 1
+                atom_group_list = custom_traj[self._custom_traj_idx]
+                self._custom_traj_idx+= 1
             else:
                 atom_group_list = selected_species_list
 
@@ -216,9 +234,9 @@ class OrderParameterEnsemble(BaseUniverse):
             or atoms within a molecule. 
         pbc_style : string, optional
             Gromacs pbc definitions: mol, atom, nojump
-       pos_style : string, optional
+        pos_style : string, optional
             Center of mass ("com") or "atom"
-        search_space : [float, float, int], optional
+        search_param : [float, float, int], optional
             Specify [min, max, n_points], where min and max are the 
             minimum and maximum translational spacings considered in 
             Angstrom and n_points is the number of points between these 
@@ -301,7 +319,11 @@ class OrderParameterEnsemble(BaseUniverse):
             director_idx += 1
 
             if plot:
-                plt.plot(spacing_array,trans_op_k)
+                plt.plot(spacing_array, trans_op_k)
+                plt.xlim([search_param[0], search_param[1]])
+                plt.ylim([0, 1])
+                plt.ylabel('Translational order parameter')
+                plt.xlabel('Translational spacing (Angstrom)')
                 plt.show()
                 plot=False
 
@@ -322,11 +344,12 @@ class OrderParameterEnsemble(BaseUniverse):
 
     def structure_factor_analysis(self, directors=None, times=None, 
                                   style="molecule", pbc_style=None, 
-                                  pos_style="com", q_style="strict", q_min=0, 
-                                  q_max=1, q_step = 0.01, active_dim=[1,1,1], 
+                                  pos_style="com", q_style="strict", q_min=0.0, 
+                                  q_max=1.0, q_step=0.01, active_dim=[1, 1, 1], 
                                   custom_traj=None, chunk_size=10000, 
-                                  plot_style="scatter", n_bins = 1000):
-        """High level function for calculating the structure factor as a function of the wave vector q.
+                                  plot_style="smooth", n_bins=1000):
+        """High level function for calculating the structure factor as a 
+        function of the wave vector q.
         
         Example
         -------
@@ -335,7 +358,10 @@ class OrderParameterEnsemble(BaseUniverse):
         Parameters
         ----------
         directors: numpy array(=<3, 3) or list of numpy array(=<3, 3)
-            list of directors along which to generate the wave vector (q) values. Either one set of directors as a numpy array(=<3,3) each row corresponding a director for all timesteps or a list of arrays one for each timestep
+            list of directors along which to generate the wave vector 
+            (q) values. Either one set of directors as a numpy 
+            array(=<3,3) each row corresponding to a director for all 
+            timesteps or a list of arrays one for each timestep
         times : list of floats, optional
             If None, do for whole trajectory. If an interval
             is given like this (t_start, t_end) only do from start
@@ -349,7 +375,9 @@ class OrderParameterEnsemble(BaseUniverse):
         pos_style : string, optional
             Center of mass ("com") or "atom"
         q_style : string, optional
-            style of wave vector q can be either "strict" or "grid". For style "strict" the variable q_step is ignored. If directors is not None q_style defaults to grid
+            style of wave vector q can be either "strict" or "grid". For 
+            style "strict" the variable q_step is ignored. If directors 
+            is not None q_style defaults to grid
         q_min : float, optional
             Minimum modulus of wave vector q considered
         q_max : float, optional
@@ -357,13 +385,24 @@ class OrderParameterEnsemble(BaseUniverse):
         q_step : float, optional
             Used only for q_style "grid" or if directors are specified
         active_dim : list(3)
-            Used only when directors is None. List of length 3 each entry being 1 for an active dimension and 0 for inactive dimension. 
+            Used only when directors is None. List of length 3 each 
+            entry being 1 for an active dimension and 0 for inactive 
+            dimension. 
         custom_traj : list of list of AtomGroup, optional
-            To be specified if the analysis is to be applied to clusters or other custom AtomGroups (i.e. if you want to consider different parts of the same molecule separately). The list should be the same length as the trajectory, each list of AtomGroups representing a trajectory timestep.
+            To be specified if the analysis is to be applied to clusters 
+            or other custom AtomGroups (i.e. if you want to consider 
+            different parts of the same molecule separately). The list 
+            should be the same length as the trajectory, each list of 
+            AtomGroups representing a trajectory timestep.
         chunk_size : integer, optional
-            The array of wave vectors is split into chunks of this size for the square modulus of the fourier transform calculation. A high number means more ram usage, a lower number means lower ram usage. Overall it does not have a major impact on performance.
+            The array of wave vectors is split into chunks of this size 
+            for the square modulus of the fourier transform calculation.
+            A high number means more ram usage, a lower number means 
+            lower ram usage. Overall it does not have a major impact on 
+            performance.
         plot_style : string, optional
-            If None no plot is generated. Other options are "smooth" and "scatter".
+            If None no plot is generated. Other options are "smooth" and 
+            "scatter".
         n_bins : integer, optional
             In case of data smoothing, the number of bins used.
 
@@ -391,25 +430,32 @@ class OrderParameterEnsemble(BaseUniverse):
             directors_list = self._director_check(times,directors)
             directors_idx = 0
 
-            print("****NOTE: As directors are specified, the wave vector q generation method defaults to grid and the active_dim list is not used")
+            print("****NOTE: As directors are specified, the wave vector q "\
+                  "generation method defaults to grid and the active_dim list "\
+                  "is not used")
             
             q_style = "grid"
 
         if q_style is "strict":
-            self.gen_q = self._gen_q_array_strict
-            print("****NOTE: As q_style strict is selected, the variable q_step is not used")
+            self._gen_q = self._gen_q_array_strict
+            print("****NOTE: As q_style strict is selected, the variable "\
+                  "q_step is not used")
         elif q_style is "grid":
-            self.gen_q = self._gen_q_array_grid
+            self._gen_q = self._gen_q_array_grid
         else:
-            raise NotImplementedError("q_style {:s} is not implemented".format(q_style))
+            raise NotImplementedError("q_style {:s} is not implemented"\
+                                        .format(q_style))
 
         # generate q at each timestep flag
         gen_q_flag = True
-        # Note if type directors is a numpy array then the director is the same for all timesteps and the q_array can be generator in advance
+        # Note if directors is of type numpy array then the director is 
+        # the same for all timesteps and the q_array can be generated in 
+        # advance
         if type(directors) == np.ndarray:
-            # Use first entry in directors_list as this have been converted into the right format of numpy array(1,3)
-            q_array = self.gen_q(directors_list[0], q_min, q_max, q_step)
-            q_norm = np.linalg.norm(q_array,axis=1)
+            # Use first entry in directors_list as this has been 
+            # converted into the right format: numpy array(1,3)
+            q_array = self._gen_q(directors_list[0], q_min, q_max, q_step)
+            q_norm = np.linalg.norm(q_array, axis=1)
             gen_q_flag = False
 
         # Flag used to initialise the output numpy arrays
@@ -430,21 +476,26 @@ class OrderParameterEnsemble(BaseUniverse):
                     timestep_directors = directors_list[directors_idx]
                     directors_idx += 1
 
-                q_norm, q_array = self.gen_q(timestep_directors, q_min, q_max, q_step)
+                q_norm, q_array = self._gen_q(timestep_directors, q_min, q_max, 
+                                             q_step)
 
-            position_array = self._get_position_array(style, pos_style, custom_traj)
+            position_array = self._get_position_array(style, pos_style, 
+                                                      custom_traj)
 
-            Sq = self._get_system_fourier_transform_mod2(position_array,q_array,chunk_size)/len(position_array)
+            Sq = self._get_system_fourier_transform_mod2(position_array,
+                                                         q_array,
+                                                         chunk_size
+                                                         )/len(position_array)
 
             if initialise_flag:
-                self.q_array_all = q_array
+                q_array_all = q_array
                 self.q_norm_array = q_norm
                 self.Sq_array = Sq
                 initialise_flag = False
             else:
-                self.q_array_all = np.vstack((self.q_array_all,q_array))
-                self.q_norm_array = np.append(self.q_norm_array,q_norm)
-                self.Sq_array = np.append(self.Sq_array,Sq)
+                q_array_all = np.vstack((q_array_all, q_array))
+                self.q_norm_array = np.append(self.q_norm_array, q_norm)
+                self.Sq_array = np.append(self.Sq_array, Sq)
 
             print("****TIME: {:8.2f}".format(time.time))
 
@@ -454,20 +505,29 @@ class OrderParameterEnsemble(BaseUniverse):
         # Plot structure factor
         if plot_style is not None:
             if plot_style is "smooth":
-                self.smooth_q_norm, self.smooth_Sq = self._smooth_structure_factor(q_min, q_max, n_bins)
-                plt.plot(self.smooth_q_norm,self.smooth_Sq)
-                #plt.scatter(self.q_norm_array,self.Sq_array)
+                self.smooth_q_norm, self.smooth_Sq = (
+                    self._smooth_structure_factor(q_min, q_max, n_bins))
+                plt.plot(self.smooth_q_norm, self.smooth_Sq)
+                plt.xlabel('$q$ / $\{AA}$')
+                plt.ylabel('$S(q)$')
+                plt.xlim([min(self.smooth_q_norm), max(self.smooth_q_norm)])
+                plt.ylim([min(self.smooth_Sq), max(self.smooth_Sq)])
                 plt.show()
             elif plot_style == "scatter":
-                plt.scatter(self.q_norm_array,self.Sq_array)
+                plt.scatter(self.q_norm_array, self.Sq_array)
+                plt.xlabel('$q$ / $\{AA}$')
+                plt.ylabel('$S(q)$')
+                plt.xlim([min(self.q_norm_array), max(self.q_norm_array)])
+                plt.ylim([min(self.Sq_array), max(self.Sq_array)])
                 plt.show()
             else:
-                NotImplementedError("plot_style {:s} has not been implemented".format(plot_style))
+                NotImplementedError("plot_style {:s} has not been implemented"\
+                                        .format(plot_style))
 
     def _custom_traj_check(self, times, custom_traj):
         """ Check if custom_traj is the correct length relative to the 
         trajectory and times specified. And initialises variable 
-        self.custom_traj_idx
+        self._custom_traj_idx
         
         Parameters
         ----------
@@ -487,10 +547,14 @@ class OrderParameterEnsemble(BaseUniverse):
             If list is different length from trajetory or times
         """
         if custom_traj is not None:
-            status, n_timesteps = _custom_list_v_traj_check(self, times, custom_traj)
+            status, n_timesteps = self._custom_list_v_traj_check(times, 
+                                                                 custom_traj)
             if not status:
-                raise IndexError("custom_traj (len: {:d}) supplied is not the same length as the times in trajectory/times specified (len: {:d})".format(len(custom_traj),n_timesteps))
-            self.custom_traj_idx = 0
+                raise IndexError("custom_traj (len: {:d}) supplied is not the"\
+                                 " same length as the times in trajectory"\
+                                 "/times specified (len: {:d})".format(
+                                     len(custom_traj), n_timesteps))
+            self._custom_traj_idx = 0
 
     def _custom_list_v_traj_check(self, times, custom_list):
         """ Check if a list is the correct size relative to the trajectory and times specified.
@@ -688,17 +752,17 @@ class OrderParameterEnsemble(BaseUniverse):
         """
         if pos_style is "com":
             if custom_traj is not None:
-                atom_group_list = custom_traj[self.custom_traj_idx]
-                self.custom_traj_idx += 1
+                atom_group_list = custom_traj[self._custom_traj_idx]
+                self._custom_traj_idx += 1
             else:
                 atom_group_list = [self._select_species(residue.atoms, style=style) for residue in self.selected_species.residues]
             position_array = self._get_center_of_mass(atom_group_list)
         elif pos_style is "atom":
             if custom_traj is not None:
-                position_array = custom_traj[self.custom_traj_idx][0].positions
-                for atom_group in custom_traj[self.custom_traj_idx][1:]:
+                position_array = custom_traj[self._custom_traj_idx][0].positions
+                for atom_group in custom_traj[self._custom_traj_idx][1:]:
                     position_array = np.vstack(atom_group.positions)
-                self.custom_traj_idx += 1
+                self._custom_traj_idx += 1
             else:
                 position_array = self.selected_species.positions
         else:
@@ -976,15 +1040,15 @@ class OrderParameterEnsemble(BaseUniverse):
 
         """
         norm_q = np.linspace(q_min, q_max, n_bins+1)
-        norm_q_step = (norm_q[1]-norm_q[0])/2.0
+        norm_q_step = (norm_q[1] - norm_q[0]) / 2.0
         norm_q = norm_q[0:-1] + norm_q_step
 
         norm_q_count = np.zeros((n_bins))
         smooth_Sq = np.zeros((n_bins))
 
-        bin_number = (self.q_norm_array*n_bins/(q_max-q_min)).astype(int)
-
-        for idx, Sq in zip(bin_number,self.Sq_array):
+        bin_number = (self.q_norm_array * n_bins / (q_max - q_min)).astype(int)
+x
+        for idx, Sq in zip(bin_number, self.Sq_array):
             norm_q_count[idx] += 1
             smooth_Sq[idx] += Sq
 
