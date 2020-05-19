@@ -51,10 +51,17 @@ class OrderParameterEnsemble(BaseUniverse):
     stdev_trans_spacing : float
         Standard deviation of translational spacing in Angstrom over all 
         times
-    q_norm_array : numpy array
-
-
-
+    q_norm_array : numpy array(n)
+        The array of the modulus of the n generated wave vectors (q)
+    Sq_array : numpy array(n)
+        The array of the n structure factors corresponding to the n wave
+        vectors (q)
+    smooth_q_norm : numpy array(m)
+        The array of the modulus of the m binned wave vectors (q) 
+        corresponding to the smoothed structure factors.
+    smooth_Sq : numpy array(m)
+        The m averaged and binned structure factors for each value of q
+        
     Methods
     -------
     nematic_op_analysis(times=None, style="molecule", 
@@ -351,7 +358,7 @@ class OrderParameterEnsemble(BaseUniverse):
                                   q_max=1.0, q_step=0.01, active_dim=[1, 1, 1], 
                                   custom_traj=None, chunk_size=10000, 
                                   plot_style="smooth", yscale='linear',
-                                n_bins=1000):
+                                  n_bins=1000):
         """High level function for calculating the structure factor as a 
         function of the wave vector q.
         
@@ -516,14 +523,14 @@ class OrderParameterEnsemble(BaseUniverse):
                 plt.xlabel('$q$ / ${\AA}^{-1}$')
                 plt.ylabel('$S(q)$')
                 plt.xlim([min(self.smooth_q_norm), max(self.smooth_q_norm)])
-                plt.yscale('log')
+                plt.yscale(yscale)
                 plt.show()
             elif plot_style == "scatter":
                 plt.scatter(self.q_norm_array, self.Sq_array)
                 plt.xlabel('$q$ / ${\AA}^{-1}$')
                 plt.ylabel('$S(q)$')
                 plt.xlim([min(self.q_norm_array), max(self.q_norm_array)])
-                plt.yscale('log')
+                plt.yscale(yscale)
                 plt.show()
             else:
                 NotImplementedError("plot_style {:s} has not been implemented"\
@@ -951,11 +958,9 @@ class OrderParameterEnsemble(BaseUniverse):
                 n_range.append(np.append(np.arange(-n_max, n_min + 1, 1),
                                          np.arange( n_min, n_max + 1, 1)))
 
-        print(len(n_range))
         n_array = np.asarray([p for p in itertools.product(*[
                                             range_i for range_i in n_range])])
 
-        print(n_array.shape)
         # Get all linear combinations of directors
         q_array = np.matmul(n_array, directors)
         
