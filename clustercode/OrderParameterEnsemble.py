@@ -429,7 +429,7 @@ class OrderParameterEnsemble(BaseUniverse):
 
         if directors is not None:
             # Check form of directors and initialise the director_idx variable
-            directors_list = self._director_check(times,directors)
+            directors_list = self._director_check(times, directors)
             directors_idx = 0
 
             print("****NOTE: As directors are specified, the wave vector q "\
@@ -456,8 +456,8 @@ class OrderParameterEnsemble(BaseUniverse):
         if type(directors) == np.ndarray:
             # Use first entry in directors_list as this has been 
             # converted into the right format: numpy array(1,3)
-            q_array = self._gen_q(directors_list[0], q_min, q_max, q_step)
-            q_norm = np.linalg.norm(q_array, axis=1)
+            q_norm, q_array = self._gen_q(directors_list[0], q_min, q_max, 
+                                          q_step)
             gen_q_flag = False
 
         # Flag used to initialise the output numpy arrays
@@ -1043,7 +1043,6 @@ class OrderParameterEnsemble(BaseUniverse):
         # Remove values that violate limits
         q_norm, q_array = self._check_lim_q_array(q_norm, q_array, q_min, 
                                                   q_max)
-
         return q_norm, q_array
     
     def _calc_directors(self, active_dim):
@@ -1126,6 +1125,8 @@ class OrderParameterEnsemble(BaseUniverse):
                       / (q_max - q_min) * n_bins).astype(int)
 
         for idx, Sq in zip(bin_number, self.Sq_array):
+            if idx == n_bins:
+                idx -= 1
             norm_q_count[idx] += 1
             smooth_Sq[idx] += Sq
 
