@@ -58,7 +58,7 @@ class OrderParameterEnsemble(BaseUniverse):
         vectors (q)
     smooth_q_norm : numpy array(m)
         The array of the modulus of the m binned wave vectors (q) 
-        corresponding to the smoothed structure factors.
+        corresponding to the averaged (smoothed) structure factors.
     smooth_Sq : numpy array(m)
         The m averaged and binned structure factors for each value of q
         
