@@ -350,7 +350,8 @@ class OrderParameterEnsemble(BaseUniverse):
                                   pos_style="com", q_style="strict", q_min=0.0, 
                                   q_max=1.0, q_step=0.01, active_dim=[1, 1, 1], 
                                   custom_traj=None, chunk_size=10000, 
-                                  plot_style="smooth", n_bins=1000):
+                                  plot_style="smooth", yscale='linear',
+                                n_bins=1000):
         """High level function for calculating the structure factor as a 
         function of the wave vector q.
         
@@ -406,6 +407,9 @@ class OrderParameterEnsemble(BaseUniverse):
         plot_style : string, optional
             If None no plot is generated. Other options are "smooth" and 
             "scatter".
+        yscale : string, optional
+            Setting of yscale can be 'linear' or 'log', by default 
+            'linear'
         n_bins : integer, optional
             In case of data smoothing, the number of bins used.
 
@@ -512,12 +516,14 @@ class OrderParameterEnsemble(BaseUniverse):
                 plt.xlabel('$q$ / ${\AA}^{-1}$')
                 plt.ylabel('$S(q)$')
                 plt.xlim([min(self.smooth_q_norm), max(self.smooth_q_norm)])
+                plt.yscale('log')
                 plt.show()
             elif plot_style == "scatter":
                 plt.scatter(self.q_norm_array, self.Sq_array)
                 plt.xlabel('$q$ / ${\AA}^{-1}$')
                 plt.ylabel('$S(q)$')
                 plt.xlim([min(self.q_norm_array), max(self.q_norm_array)])
+                plt.yscale('log')
                 plt.show()
             else:
                 NotImplementedError("plot_style {:s} has not been implemented"\
@@ -930,7 +936,7 @@ class OrderParameterEnsemble(BaseUniverse):
         """
         # periodic_len = 2*pi / (distance between opposite simulation 
         # box faces)
-        periodic_len = np.linalg.norm(directors, axis=0)
+        periodic_len = np.linalg.norm(directors, axis=1)
 
         # Get maximum integer index
         n_max_vec = (q_max / periodic_len).astype(int)
@@ -938,20 +944,22 @@ class OrderParameterEnsemble(BaseUniverse):
 
         # Generate combinations of the integer values
         n_range = []
-        for n_max, n_min in zip(n_max_vec,n_min_vec):
+        for n_max, n_min in zip(n_max_vec, n_min_vec):
             if n_min == 0:
                 n_range.append(np.arange(-n_max, n_max+1, 1))
             else:
                 n_range.append(np.append(np.arange(-n_max, n_min + 1, 1),
                                          np.arange( n_min, n_max + 1, 1)))
 
+        print(len(n_range))
         n_array = np.asarray([p for p in itertools.product(*[
                                             range_i for range_i in n_range])])
 
+        print(n_array.shape)
         # Get all linear combinations of directors
-        q_array = np.matmul(n_array,directors)
-
-        q_norm = np.linalg.norm(q_array,axis=1)
+        q_array = np.matmul(n_array, directors)
+        
+        q_norm = np.linalg.norm(q_array, axis=1)
 
         # Remove values that violate the limits
         q_norm, q_array = self._check_lim_q_array(q_norm, q_array, q_min, 
