@@ -80,7 +80,7 @@ class OrderParameterEnsemble(BaseUniverse):
                               q_min=0, q_max=1, q_step = 0.01, 
                               active_dim=[1,1,1], custom_traj=None, 
                               plot_style="scatter", chunk_size=10000, 
-                              n_bins = 500)
+                              yscale='linear', n_bins = 500)
         Calculates structure factor as a function of the wave vector.
 
     """
