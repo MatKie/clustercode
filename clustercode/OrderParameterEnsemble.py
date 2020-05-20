@@ -264,8 +264,6 @@ class OrderParameterEnsemble(BaseUniverse):
         
         ToDo
         ----
-        Test custom_traj feature
-        Format/cleanup plot (possibly with external function)
         """
         self._set_pbc_style(pbc_style)
 
@@ -428,7 +426,6 @@ class OrderParameterEnsemble(BaseUniverse):
         
         ToDo
         ----
-        Test custom_traj feature
         """
         self._set_pbc_style(pbc_style)
 
