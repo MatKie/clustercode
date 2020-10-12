@@ -54,7 +54,7 @@ class ClusterEnsemble(BaseUniverse):
 
     def cluster_analysis(self, cut_off=7.5, times=None, style="atom", 
                     measure="b2b", algorithm="dynamic", work_in="Residue",
-                    traj_pbc_style=None, pbc=True):
+                    traj_pbc_style=None, pbc=True, verbosity=0):
         """High level function clustering molecules together
 
         Example
@@ -103,6 +103,8 @@ class ClusterEnsemble(BaseUniverse):
             set to "Residue" periodic boundary conditions are taken into
             account implicitly for atoms in molecules passing across the 
             boundaries.
+        verbosity: int, optional
+            Controls how much the code talks.
 
         Raises
         ------
@@ -128,7 +130,9 @@ class ClusterEnsemble(BaseUniverse):
         self.aggregate_species = self._select_species(self.universe, style=self.style)
 
         self.cluster_list = []
-
+        
+        self.times = times
+ 
         # Initialise the neighboursearch object
 
         if pbc == True:
@@ -168,15 +172,35 @@ class ClusterEnsemble(BaseUniverse):
             raise NotImplementedError("{:s} is unspecified algorithm".format(algorithm))
         # Loop over all trajectory times
         for time in self.universe.trajectory:
-            if times is not None:
-                if time.time > max(times) or time.time < min(times):
+            if self.times is not None:
+                if time.time > max(self.times) or time.time < min(self.times):
                     continue
             self.cluster_list.append(cluster_algorithm())
-            print("****TIME: {:8.2f}".format(time.time))
-            print("---->Number of clusters {:d}".format(len(self.cluster_list[-1])))
+            if verbosity > 0:
+                print("****TIME: {:8.2f}".format(time.time))
+                print("---->Number of clusters {:d}".format(len(self.cluster_list[-1])))
 
         # Rewind Trajectory to beginning for other analysis
         self.universe.trajectory.rewind()
+        self.cluster_list = self._create_generator(self.cluster_list)
+
+    def _create_generator(self, cluster_list):
+        '''
+        Make cluster_list a generator expression.
+        '''
+        i = 0
+        for j, time in enumerate(self.universe.trajectory):
+            if self.times is not None:
+                if time.time < min(self.times):
+                    i = i+1
+                    continue
+                elif time.time > max(self.times):
+                    break
+            yield cluster_list[j-i] 
+        
+        self.cluster_list = self._create_generator(cluster_list)             
+        
+
 
     def _get_cluster_list_static(self, cut_off=7.5):
         """Get Cluster from single frame with the static method
