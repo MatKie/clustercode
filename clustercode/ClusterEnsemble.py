@@ -3,6 +3,7 @@ import MDAnalysis.lib.NeighborSearch as NeighborSearch
 import warnings
 import matplotlib.pyplot as plt
 from clustercode.BaseUniverse import BaseUniverse
+import numpy as np
 
 # from MDAnalysis.core.groups import ResidueGroup
 """
@@ -198,12 +199,18 @@ class ClusterEnsemble(BaseUniverse):
         distances,
         valency=1,
         traj_pbc_style=None,
-        method=None,
+        method="pkdtree",
         pbc=True,
         verbosity=0,
     ):
         """
-        [summary]
+        Calculate number of species ion around each distance specified
+        in distances around each cluster (defined in cluster_list) at
+        each time. The calculation relies on 
+        MDAnalsys.lib.distances.capped_distances(), there is an issue
+        with this code see this PR:
+            https://github.com/MDAnalysis/mdanalysis/pull/2937
+        as long as this is not fixed, I put pkdtree as standard method.
 
         Parameters
         ----------
@@ -227,37 +234,103 @@ class ClusterEnsemble(BaseUniverse):
             Wether or not to take pbc into account, by default True
         verbosity : int, optional
             Determines how much the code talks, by default 0
+
+        Returns:
+        --------
+        condensed_ions: list of list of lists of floats
+            At each time there is a list for each distance with a list 
+            of number of ions per cluster, example when there are two
+            timesteps with 2 and 3 clusters for two distances each we 
+            have:
+            [ [ [c1_t1_d1, c2_t1_d1], [c1_t1_d2, c2_t1_d2] ],
+              [ [c1_t2_d1, c2_t2_d1], [c1_t2_d2, c2_t2_d2] ]
+            ]
         """
         condensed_ions = []
         # Handle pbc
-        box = None
-        # Define reference set
+        self._set_pbc_style(traj_pbc_style)
+        if pbc:
+            box = self.universe.dimensions
         # Define configuration set
-        refset = None
-        configset = None
+        # This could be done with _select_species if refactored correctly.
+        # Improvement: When looping over multiple distances do it first
+        # for the largest distance, then adapt selection for shorter one.
+        if isinstance(ion, str):
+            ion = [ion]
+        configset = self.universe.select_atoms("name {:s}".format(" ".join(ion)))
+        configset = configset.atoms.positions
         for clusters in self.cluster_list:
             _temporary_condensed_ions = []
             for distance in distances:
                 _temporary_condensed_ions.append(
                     self._condensed_ions(
-                        clusters, refset, configset, distance, box, method, verbosity
+                        clusters, headgroup, configset, distance, box, method, verbosity
                     )
                 )
+            condensed_ions.append(_temporary_condensed_ions)
+        return condensed_ions
 
     def _condensed_ions(
         self,
         clusters,
-        refset,
+        headgroup,
         configset,
         distance,
         box=None,
         method="nsgrid",
         verbosity=0,
     ):
+        """
+        Core routine to condensed_ions
+
+        Parameters
+        ----------
+        clusters : list of resgroups
+            clusters as determined in cluster_analysis
+        headgroup : str, list
+            see condensed_ions
+        configset : np.array
+            positions of potentially condensed species
+        distance : float
+            distance to be evaluated
+        box : np.array, optional
+            when pbc are , by default None
+        method : str, optional
+            see condensed_ions(), by default "nsgrid"
+        verbosity : int, optional
+            Chattiness, by default 0
+
+        Returns
+        -------
+        list of float
+            the number of condensed species for each cluster (at given 
+            distance and time).
+        """
+        occupancy = []
         for cluster in clusters:
+            unique_idx = []
+            # Define reference set
+            if isinstance(headgroup, str):
+                headgroup = [headgroup]
+            refset = cluster.atoms.select_atoms("name {:s}".format(" ".join(headgroup)))
+            refset = refset.atoms.positions
             # Call capped_distance for pairs
+            pairs = MDAnalysis.lib.distances.capped_distance(
+                refset,
+                configset,
+                distance,
+                box=box,
+                method=method,
+                return_distances=False,
+            )
             # Make unique
-            pass
+            if pairs.size > 0:
+                unique_idx = MDAnalysis.lib.util.unique_int_1d(
+                    np.asarray(pairs[:, 1], dtype=np.int64)
+                )
+            occupancy.append(len(unique_idx))
+
+        return occupancy
 
     def _create_generator(self, cluster_list):
         """

@@ -1,12 +1,14 @@
 import MDAnalysis
 import warnings
 import os
+
 """
 ToDo:
     Make sure PBC do what we want 
 """
 
-class BaseUniverse():
+
+class BaseUniverse:
     """A class used to perform analysis on Clusters of molecules
 
     Attributes
@@ -27,7 +29,7 @@ class BaseUniverse():
         Calculates which molecules are clustering together for all
         timesteps. 
     """
-    
+
     def __init__(self, coord, traj, selection):
         """
         Parameters
@@ -44,9 +46,9 @@ class BaseUniverse():
             Use gromacs pbc definitions: mol, atom, nojump
         """
 
-        self._coord = coord # Protected Attribute
-        self._traj  = traj # Protected Attribute
-        self.selection = selection 
+        self._coord = coord  # Protected Attribute
+        self._traj = traj  # Protected Attribute
+        self.selection = selection
 
     def _get_universe(self, coord, traj=None):
         """Getting the universe when having or not having a trajectory
@@ -68,9 +70,9 @@ class BaseUniverse():
             universe = MDAnalysis.Universe(coord, traj)
         else:
             universe = MDAnalysis.Universe(coord)
-        
+
         return universe
-    
+
     def _select_species(self, atoms, style="atom"):
         """Get an AtomGroup of the selected species 
         
@@ -90,24 +92,23 @@ class BaseUniverse():
         aggregate_species: MDAanalysis Atom(s)Group object
             Just the atoms which define a cluster 
         """
-        
+
         # Cast selection to list if only single string is given
-        # this is necessary because of differences in processing strings and 
+        # this is necessary because of differences in processing strings and
         # list of strings
-        if type(self.selection) is not list: self.selection = [ 
-                                                        self.selection 
-                                                        ]
-        
-        # If beads are choosen we look for names instead of resnames 
+        if type(self.selection) is not list:
+            self.selection = [self.selection]
+
+        # If beads are choosen we look for names instead of resnames
         if style == "atom":
-            aggregate_species  = atoms.select_atoms(
-                            "name {:s}".format(" ".join(self.selection))
-                            )
+            aggregate_species = atoms.select_atoms(
+                "name {:s}".format(" ".join(self.selection))
+            )
         elif style == "molecule":
-            aggregate_species  = atoms.select_atoms(
-                        "resname {:s}".format(" ".join(self.selection))
-                        )
-        
+            aggregate_species = atoms.select_atoms(
+                "resname {:s}".format(" ".join(self.selection))
+            )
+
         return aggregate_species
 
     def _set_pbc_style(self, pbc_style):
@@ -132,13 +133,15 @@ class BaseUniverse():
         Parameter
         ---------
         pbc_style : string
-            Gromacs pbc definition: mol, atom, nojump
+            Gromacs pbc definition: mol, atom, nojump, cluster, whole.
             
         """
         new_traj = self._traj[:-4] + "_pbc_{:s}".format(pbc_style) + self._traj[-4:]
         # Gromacs command to convert current trajectory file to a new trajectory file with name new_traj.
-        gromacs_command = "gmx trjconv -f {:s} -o {:s} -s {:s} -pbc {:s} <<EOF\n 0\n EOF".format(self._traj, new_traj, self._coord, pbc_style)
+        gromacs_command = "gmx trjconv -f {:s} -o {:s} -s {:s} -pbc {:s} <<EOF\n 0\n EOF".format(
+            self._traj, new_traj, self._coord, pbc_style
+        )
         os.system(gromacs_command)
-        
+
         self._traj = new_traj
         self.pbc_style = pbc_style

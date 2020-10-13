@@ -20,6 +20,13 @@ pbc = True
 
 
 atom_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
+pbc = True
+method = "nsgrid"  # bruteforce, nsgrid, pkdtree
+ci = atom_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+
+print(ci)
+
+
 mol_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
 whole_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
 clstr_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
@@ -51,8 +58,4 @@ for a, m, w, c in zip(atom_list, mol_list, whole_list, clstr_list):
         if wi != ci:
             print(ai, mi, wi, ci)
             raise RuntimeError("Different clustering of whole")
-
-pbc = True
-method = "nsgrid"  # bruteforce, nsgrid, pkdtree
-atom_uni.condensed_ions("SU", "NA", [0.44, 0.76], method=method, pbc=pbc)
 
