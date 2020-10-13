@@ -51,10 +51,18 @@ class ClusterEnsemble(BaseUniverse):
         """
         super().__init__(coord, traj, cluster_objects)
 
-
-    def cluster_analysis(self, cut_off=7.5, times=None, style="atom", 
-                    measure="b2b", algorithm="dynamic", work_in="Residue",
-                    traj_pbc_style=None, pbc=True, verbosity=0):
+    def cluster_analysis(
+        self,
+        cut_off=7.5,
+        times=None,
+        style="atom",
+        measure="b2b",
+        algorithm="dynamic",
+        work_in="Residue",
+        traj_pbc_style=None,
+        pbc=True,
+        verbosity=0,
+    ):
         """High level function clustering molecules together
 
         Example
@@ -130,28 +138,27 @@ class ClusterEnsemble(BaseUniverse):
         self.aggregate_species = self._select_species(self.universe, style=self.style)
 
         self.cluster_list = []
-        
+
         self.times = times
- 
+
         # Initialise the neighboursearch object
 
         if pbc == True:
             self.neighbour_search = NeighborSearch.AtomNeighborSearch(
-            self.aggregate_species, 
-            box=self.universe.dimensions,
-            bucket_size=10
+                self.aggregate_species, box=self.universe.dimensions, bucket_size=10
             )
         elif pbc == False:
             if work_in == "Residue" and traj_pbc_style != "mol":
-                warnings.warn('work_in = "Residue" implicitly enforces pbc '\
-                              'for atoms in the same molecule if pbc_style '\
-                              '= "atom"', UserWarning)
-                print('Warning')
-            self.neighbour_search = NeighborSearch.AtomNeighborSearch(
-                self.aggregate_species, 
-                box=None,
-                bucket_size=10
+                warnings.warn(
+                    'work_in = "Residue" implicitly enforces pbc '
+                    "for atoms in the same molecule if pbc_style "
+                    '= "atom"',
+                    UserWarning,
                 )
+                print("Warning")
+            self.neighbour_search = NeighborSearch.AtomNeighborSearch(
+                self.aggregate_species, box=None, bucket_size=10
+            )
         else:
             raise ValueError("pbc has to be boolean")
 
@@ -184,23 +191,89 @@ class ClusterEnsemble(BaseUniverse):
         self.universe.trajectory.rewind()
         self.cluster_list = self._create_generator(self.cluster_list)
 
+    def condensed_ions(
+        self,
+        headgroup,
+        ion,
+        distances,
+        valency=1,
+        traj_pbc_style=None,
+        method=None,
+        pbc=True,
+        verbosity=0,
+    ):
+        """
+        [summary]
+
+        Parameters
+        ----------
+        headgroup : str
+            atom identifier of the headgroup, can also be a specific
+            part of the headgroup or even a tailgroup.
+        ion : str
+            atom identifier of the species whose degree of condensation
+            around the headgroups is to be determined. 
+        distances : float, list of floats
+            Distance(s) up to which to determine the degree of 
+            condenstation. Can be multiple.
+        valency : int, optional
+            How many ions are there per headgroup, by default 1.
+        traj_pbc_style : string, optional
+            Gromacs pbc definitions: mol or atom, by default
+            None
+        method : {'bruteforce', 'nsgrid', 'pkdtree'}, optional
+            Method to be passed to mda.lib.distances.capped_distance(). 
+        pbc : bool, optional
+            Wether or not to take pbc into account, by default True
+        verbosity : int, optional
+            Determines how much the code talks, by default 0
+        """
+        condensed_ions = []
+        # Handle pbc
+        box = None
+        # Define reference set
+        # Define configuration set
+        refset = None
+        configset = None
+        for clusters in self.cluster_list:
+            _temporary_condensed_ions = []
+            for distance in distances:
+                _temporary_condensed_ions.append(
+                    self._condensed_ions(
+                        clusters, refset, configset, distance, box, method, verbosity
+                    )
+                )
+
+    def _condensed_ions(
+        self,
+        clusters,
+        refset,
+        configset,
+        distance,
+        box=None,
+        method="nsgrid",
+        verbosity=0,
+    ):
+        for cluster in clusters:
+            # Call capped_distance for pairs
+            # Make unique
+            pass
+
     def _create_generator(self, cluster_list):
-        '''
+        """
         Make cluster_list a generator expression.
-        '''
+        """
         i = 0
         for j, time in enumerate(self.universe.trajectory):
             if self.times is not None:
                 if time.time < min(self.times):
-                    i = i+1
+                    i = i + 1
                     continue
                 elif time.time > max(self.times):
                     break
-            yield cluster_list[j-i] 
-        
-        self.cluster_list = self._create_generator(cluster_list)             
-        
+            yield cluster_list[j - i]
 
+        self.cluster_list = self._create_generator(cluster_list)
 
     def _get_cluster_list_static(self, cut_off=7.5):
         """Get Cluster from single frame with the static method
