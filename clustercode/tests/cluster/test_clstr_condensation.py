@@ -2,6 +2,7 @@ from pytest import approx
 import MDAnalysis as mda
 from clustercode.ClusterEnsemble import ClusterEnsemble
 import os
+import copy
 
 tpr = os.path.join("clustercode", "tests", "cluster", "files", "topol_no_solv.tpr")
 atom = os.path.join("clustercode", "tests", "cluster", "files", "traj_atom.xtc")
@@ -21,15 +22,46 @@ pbc = True
 
 atom_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
 pbc = True
-method = "nsgrid"  # bruteforce, nsgrid, pkdtree
+method = "pkdtree"  # bruteforce, nsgrid, pkdtree
 ci = atom_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
 
-print(ci)
+tree = copy.deepcopy(ci)
 
+method = "nsgrid"  # bruteforce, nsgrid, pkdtree
+atom_c = atom_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+
+grid = copy.deepcopy(atom_c)
+
+method = "bruteforce"  # bruteforce, nsgrid, pkdtree
+ci = atom_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+
+brute = copy.deepcopy(ci)
+
+for t, g, b in zip(tree, grid, brute):
+    for ti, gi, bi in zip(t, g, b):
+        for tii, gii, bii in zip(ti, gi, bi):
+            assert tii == approx(gii)
+            assert tii == approx(bii)
+            assert gii == approx(bii)
 
 mol_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
 whole_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
 clstr_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
+
+method = "pkdtree"  # bruteforce, nsgrid, pkdtree
+mol = mol_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+whole = whole_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+cluster = clstr_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+
+for t, g, b, c in zip(tree, mol, whole, cluster):
+    for ti, gi, bi, ci in zip(t, g, b, c):
+        for tii, gii, bii, cii in zip(ti, gi, bi, ci):
+            assert tii == approx(gii)
+            assert tii == approx(bii)
+            assert tii == approx(cii)
+            assert gii == approx(bii)
+            assert gii == approx(cii)
+            assert bii == approx(cii)
 
 
 def get_lengths(uni):
