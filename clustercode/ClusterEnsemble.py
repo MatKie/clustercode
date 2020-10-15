@@ -332,6 +332,149 @@ class ClusterEnsemble(BaseUniverse):
 
         return occupancy
 
+    def unwrap_cluster(self, resgroup, box=None, unwrap=True, verbosity=0):
+        """
+        Make cluster which crosses pbc not cross pbc. 
+
+        Parameters
+        ----------
+        resgroup : MDAnalysis.ResidueGroup
+            Cluster residues
+        box : boxvector, optional
+            boxvector, by default None
+        unwrap : bool, optional
+            Wether or not to make molecules whole before treatment 
+            (only necessary if pbc = atom in trjconv), by default True
+        verbosity : int, optional
+            Chattiness, by default 0
+        """
+        # cluster is passed as resgroup and boxdimensions as xyz
+        # will only support triclinic as of now..
+        if box is None:
+            box = self.universe.dimensions
+        # Unwrap position if needed:
+        for residue in resgroup:
+            residue.atoms.unwrap(reference="cog", inplace=True)
+        # Find initial molecule (closest to Centre of box)
+        COB = box[:3] / 2
+        weights = None  # This selects COG, if we mass weight its COM
+        rmin = np.sum(box[:3]) * np.sum(box[:3])
+        imin = -1
+        for i, residue in enumerate(resgroup):
+            tmin = self._pbc(residue.atoms.center(weights=None), COB, box)
+            tmin = np.dot(tmin, tmin)
+            if tmin < rmin:
+                rmin = tmin
+                imin = i
+
+        # While not all added, loop over added ones and then to be
+        # added ones to find next one
+        added = [imin]
+        nr_mol = resgroup.n_residues
+        nr_added = 1
+        while nr_added < nr_mol:
+            # imin, jmin = self._unwrap_bruteforce(resgroup, added, box)
+            imin, jmin = self._unwrap_ns(resgroup, added, box)
+            # Displace the next one, this is done to replace the molecule
+            # by it's nearest neighbour.
+            cog_i = resgroup[imin].atoms.center(weights=weights)
+            cog_j = resgroup[jmin].atoms.center(weights=weights)
+
+            dx = self._pbc(cog_j, cog_i, box)
+            xtest = cog_i + dx
+            shift = xtest - cog_j
+            if np.dot(shift, shift) > 1e-8:
+                if verbosity > 0.5:
+                    print(
+                        "Shifting molecule {:d} by {:.2f}, {:.2f}, {:.2f}".format(
+                            jmin, shift[0], shift[1], shift[2]
+                        )
+                    )
+                for atom in resgroup[jmin].atoms:
+                    atom.position += shift
+
+            nr_added += 1
+            added.append(jmin)
+
+    def _unwrap_ns(self, resgroup, added, box, method="pkdtree"):
+        # Optimisation idea: pass refset and only increment outside of
+        # this function.
+        # Optimisation idea: construct the refset_cog matrix somewhere else
+        # and here just select the rows etc..
+        refset = resgroup[added[0]]
+        refset_cog = np.zeros((len(added), 3))
+
+        refset_cog[0, :] = resgroup[added[0]].atoms.center(None)
+        if len(added) == 1:
+            refset_cog = refset_cog[0]
+
+        for i, index in enumerate(added[1:]):
+            refset += resgroup[index]
+            refset_cog[i + 1, :] = resgroup[index].atoms.center(None)
+
+        configset = resgroup.difference(refset)
+        configset_cog = np.zeros((len(configset), 3))
+        for i, res in enumerate(configset):
+            configset_cog[i, :] = res.atoms.center(None)
+        if len(configset) == 1:
+            configset_cog = configset_cog[0]
+
+        distances = []
+        dist = 8.0
+        while len(distances) < 1:
+            pairs, distances = MDAnalysis.lib.distances.capped_distance(
+                refset_cog,
+                configset_cog,
+                dist,
+                box=box,
+                method=method,
+                return_distances=True,
+            )
+            dist += 0.5
+
+        minpair = np.where(distances == np.amin(distances))[0][0]
+
+        imin = added[pairs[minpair][0]]
+        jmin = configset[pairs[minpair][1]].resnum
+        return imin, jmin
+
+    def _unwrap_bruteforce(self, resgroup, added, box, weights=None):
+        # While not all added, loop over added ones and then to be
+        # added ones to find next one
+        rmin = np.sum(box[:3]) * np.sum(box[:3])
+        for index_added in added:
+            cog_i = resgroup[index_added].atoms.center(weights=weights)
+            for j, residue in enumerate(resgroup):
+                if index_added == j or j in added:
+                    continue
+                # Order?
+                tmin = self._pbc(residue.atoms.center(weights=weights), cog_i, box)
+                tmin = np.dot(tmin, tmin)
+                if tmin < rmin:
+                    rmin = tmin
+                    jmin = j
+                    imin = index_added
+        return imin, jmin
+
+    @staticmethod
+    def _pbc(r1, r2, box):
+        # Rectangular boxes only
+        # Calculate fdiag, hdiag, mhdiag
+        fdiag = box[:3]
+        hdiag = fdiag / 2
+
+        dx = r1 - r2
+        # Loop over dims
+        for i in range(3):
+            # while loop upper limit: if dx > hdiag shift by - fdiag
+            while dx[i] > hdiag[i]:
+                dx[i] -= fdiag[i]
+            # while loop lower limit: if dx > hdiag shift by + fdiag
+            while dx[i] < -hdiag[i]:
+                dx[i] += fdiag[i]
+
+        return dx
+
     def _create_generator(self, cluster_list):
         """
         Make cluster_list a generator expression.
