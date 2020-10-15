@@ -139,7 +139,7 @@ class ClusterEnsemble(BaseUniverse):
         self.aggregate_species = self._select_species(self.universe, style=self.style)
 
         self.cluster_list = []
-
+        self.cluster_sizes = []
         self.times = times
 
         # Initialise the neighboursearch object
@@ -184,6 +184,9 @@ class ClusterEnsemble(BaseUniverse):
                 if time.time > max(self.times) or time.time < min(self.times):
                     continue
             self.cluster_list.append(cluster_algorithm())
+            self.cluster_sizes.append(
+                [len(cluster) for cluster in self.cluster_list[-1]]
+            )
             if verbosity > 0:
                 print("****TIME: {:8.2f}".format(time.time))
                 print("---->Number of clusters {:d}".format(len(self.cluster_list[-1])))
@@ -719,7 +722,7 @@ class ClusterEnsemble(BaseUniverse):
         # Check if the frames desired are available
         if not isinstance(frames, list):
             frames = [frames]
-        cluster_list_length = len(self.cluster_list)
+        cluster_list_length = len(self.cluster_sizes)
         maxframe = max([index[1] for index in frames])
         if maxframe > cluster_list_length:
             raise ValueError(
@@ -771,8 +774,8 @@ class ClusterEnsemble(BaseUniverse):
             All the clusterssizes in all the frames specified
         """
         cluster_distribution = []
-        for frame in self.cluster_list[slice(*frames)]:
-            for cluster in frame:
-                cluster_distribution.append(len(cluster))
+        for frame in self.cluster_sizes[slice(*frames)]:
+            for size in frame:
+                cluster_distribution.append(size)
 
         return cluster_distribution
