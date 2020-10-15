@@ -332,7 +332,22 @@ class ClusterEnsemble(BaseUniverse):
 
         return occupancy
 
-    def unwrap_cluster(self, resgroup, box=None, unwrap=True):
+    def unwrap_cluster(self, resgroup, box=None, unwrap=True, verbosity=0):
+        """
+        Make cluster which crosses pbc not cross pbc. 
+
+        Parameters
+        ----------
+        resgroup : MDAnalysis.ResidueGroup
+            Cluster residues
+        box : boxvector, optional
+            boxvector, by default None
+        unwrap : bool, optional
+            Wether or not to make molecules whole before treatment 
+            (only necessary if pbc = atom in trjconv), by default True
+        verbosity : int, optional
+            Chattiness, by default 0
+        """
         # cluster is passed as resgroup and boxdimensions as xyz
         # will only support triclinic as of now..
         if box is None:
@@ -358,7 +373,8 @@ class ClusterEnsemble(BaseUniverse):
         nr_mol = resgroup.n_residues
         nr_added = 1
         while nr_added < nr_mol:
-            imin, jmin = self._unwrap_bruteforce(resgroup, added, box)
+            # imin, jmin = self._unwrap_bruteforce(resgroup, added, box)
+            imin, jmin = self._unwrap_ns(resgroup, added, box)
             # Displace the next one, this is done to replace the molecule
             # by it's nearest neighbour.
             cog_i = resgroup[imin].atoms.center(weights=weights)
@@ -368,17 +384,59 @@ class ClusterEnsemble(BaseUniverse):
             xtest = cog_i + dx
             shift = xtest - cog_j
             if np.dot(shift, shift) > 1e-8:
-                print(
-                    "Shifting molecule {:d} by {:.2f}, {:.2f}, {:.2f}".format(
-                        jmin, shift[0], shift[1], shift[2]
+                if verbosity > 0.5:
+                    print(
+                        "Shifting molecule {:d} by {:.2f}, {:.2f}, {:.2f}".format(
+                            jmin, shift[0], shift[1], shift[2]
+                        )
                     )
-                )
                 for atom in resgroup[jmin].atoms:
                     atom.position += shift
 
             nr_added += 1
             added.append(jmin)
-            print(nr_added)
+
+    def _unwrap_ns(self, resgroup, added, box, method="pkdtree"):
+        # Optimisation idea: pass refset and only increment outside of
+        # this function.
+        # Optimisation idea: construct the refset_cog matrix somewhere else
+        # and here just select the rows etc..
+        refset = resgroup[added[0]]
+        refset_cog = np.zeros((len(added), 3))
+
+        refset_cog[0, :] = resgroup[added[0]].atoms.center(None)
+        if len(added) == 1:
+            refset_cog = refset_cog[0]
+
+        for i, index in enumerate(added[1:]):
+            refset += resgroup[index]
+            refset_cog[i + 1, :] = resgroup[index].atoms.center(None)
+
+        configset = resgroup.difference(refset)
+        configset_cog = np.zeros((len(configset), 3))
+        for i, res in enumerate(configset):
+            configset_cog[i, :] = res.atoms.center(None)
+        if len(configset) == 1:
+            configset_cog = configset_cog[0]
+
+        distances = []
+        dist = 8.0
+        while len(distances) < 1:
+            pairs, distances = MDAnalysis.lib.distances.capped_distance(
+                refset_cog,
+                configset_cog,
+                dist,
+                box=box,
+                method=method,
+                return_distances=True,
+            )
+            dist += 0.5
+
+        minpair = np.where(distances == np.amin(distances))[0][0]
+
+        imin = added[pairs[minpair][0]]
+        jmin = configset[pairs[minpair][1]].resnum
+        return imin, jmin
 
     def _unwrap_bruteforce(self, resgroup, added, box, weights=None):
         # While not all added, loop over added ones and then to be
