@@ -332,6 +332,91 @@ class ClusterEnsemble(BaseUniverse):
 
         return occupancy
 
+    def unwrap_cluster(self, resgroup, box=None, unwrap=True):
+        # cluster is passed as resgroup and boxdimensions as xyz
+        # will only support triclinic as of now..
+        if box is None:
+            box = self.universe.dimensions
+        # Unwrap position if needed:
+        for residue in resgroup:
+            residue.atoms.unwrap(reference="cog", inplace=True)
+        # Find initial molecule (closest to Centre of box)
+        COB = box[:3] / 2
+        weights = None  # This selects COG, if we mass weight its COM
+        rmin = np.sum(box[:3]) * np.sum(box[:3])
+        imin = -1
+        for i, residue in enumerate(resgroup):
+            tmin = self._pbc(residue.atoms.center(weights=None), COB, box)
+            tmin = np.dot(tmin, tmin)
+            if tmin < rmin:
+                rmin = tmin
+                imin = i
+
+        # While not all added, loop over added ones and then to be
+        # added ones to find next one
+        added = [imin]
+        nr_mol = resgroup.n_residues
+        nr_added = 1
+        while nr_added < nr_mol:
+            imin, jmin = self._unwrap_bruteforce(resgroup, added, box)
+            # Displace the next one, this is done to replace the molecule
+            # by it's nearest neighbour.
+            cog_i = resgroup[imin].atoms.center(weights=weights)
+            cog_j = resgroup[jmin].atoms.center(weights=weights)
+
+            dx = self._pbc(cog_j, cog_i, box)
+            xtest = cog_i + dx
+            shift = xtest - cog_j
+            if np.dot(shift, shift) > 1e-8:
+                print(
+                    "Shifting molecule {:d} by {:.2f}, {:.2f}, {:.2f}".format(
+                        jmin, shift[0], shift[1], shift[2]
+                    )
+                )
+                for atom in resgroup[jmin].atoms:
+                    atom.position += shift
+
+            nr_added += 1
+            added.append(jmin)
+            print(nr_added)
+
+    def _unwrap_bruteforce(self, resgroup, added, box, weights=None):
+        # While not all added, loop over added ones and then to be
+        # added ones to find next one
+        rmin = np.sum(box[:3]) * np.sum(box[:3])
+        for index_added in added:
+            cog_i = resgroup[index_added].atoms.center(weights=weights)
+            for j, residue in enumerate(resgroup):
+                if index_added == j or j in added:
+                    continue
+                # Order?
+                tmin = self._pbc(residue.atoms.center(weights=weights), cog_i, box)
+                tmin = np.dot(tmin, tmin)
+                if tmin < rmin:
+                    rmin = tmin
+                    jmin = j
+                    imin = index_added
+        return imin, jmin
+
+    @staticmethod
+    def _pbc(r1, r2, box):
+        # Rectangular boxes only
+        # Calculate fdiag, hdiag, mhdiag
+        fdiag = box[:3]
+        hdiag = fdiag / 2
+
+        dx = r1 - r2
+        # Loop over dims
+        for i in range(3):
+            # while loop upper limit: if dx > hdiag shift by - fdiag
+            while dx[i] > hdiag[i]:
+                dx[i] -= fdiag[i]
+            # while loop lower limit: if dx > hdiag shift by + fdiag
+            while dx[i] < -hdiag[i]:
+                dx[i] += fdiag[i]
+
+        return dx
+
     def _create_generator(self, cluster_list):
         """
         Make cluster_list a generator expression.

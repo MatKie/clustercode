@@ -16,11 +16,13 @@ for clstr_ensemble in clstr_ensembles:
 
 pbc_COMs = []
 nopbc_COMs = []
-for clstr_ensemble in clstr_ensembles:
+for j, clstr_ensemble in enumerate(clstr_ensembles):
     for i, clusterlist in enumerate(clstr_ensemble.cluster_list):
         if i > 0.5:
             break
         for cluster in clusterlist:
+            if j > 0.5:
+                clstr_ensemble.unwrap_cluster(cluster)
             nopbc = cluster.center_of_mass(pbc=False)
             pbc = cluster.center_of_mass(pbc=True)
             pbc_COMs.append(pbc)
@@ -34,8 +36,14 @@ def assert_vector(v1, v2):
 
 
 def dont_assert_vector(v1, v2):
+    truth_value = []
     for c1, c2 in zip(v1, v2):
-        assert c1 != approx(c2, abs=1e-3)
+        if c1 != approx(c2, abs=1e-3):
+            truth_value.append(True)
+        else:
+            truth_value.append(False)
+    if True in truth_value:
+        raise AssertionError
 
 
 def test_pbc():
