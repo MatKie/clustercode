@@ -438,7 +438,7 @@ class ClusterEnsemble(BaseUniverse):
         minpair = np.where(distances == np.amin(distances))[0][0]
 
         imin = added[pairs[minpair][0]]
-        jmin = configset[pairs[minpair][1]].resnum
+        jmin = np.where(np.asarray(resgroup) == configset[pairs[minpair][1]])[0][0]
         return imin, jmin
 
     def _unwrap_bruteforce(self, resgroup, added, box, weights=None):
@@ -481,6 +481,13 @@ class ClusterEnsemble(BaseUniverse):
     def _create_generator(self, cluster_list):
         """
         Make cluster_list a generator expression.
+
+        This works a bit weirdly. when looping over 
+        it, all transformations are only valid as long
+        as the trajectory is not loaded again. For example
+        when you run the loop do the cluster unwrapping
+        and then run the loop again, the unwrapping will
+        be 'lost'.
         """
         i = 0
         for j, time in enumerate(self.universe.trajectory):
