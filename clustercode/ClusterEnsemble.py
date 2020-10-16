@@ -478,6 +478,109 @@ class ClusterEnsemble(BaseUniverse):
 
         return dx
 
+    def gyration(self, cluster, unwrap=False):
+        """
+        Calculte the gyration tensor defined as:
+
+        Rg_ab = 1/N sum_i a_i*b_i ; a,b = {x,y,z}
+
+        The eigenvalues of these vector are helpful
+        to determine the shape of clusters. See:
+
+        J. Phys. Chem. B 2014, 118, 3864−3880, and:
+        MOLECULAR SIMULATION 2020, VOL. 46, NO. 4, 308–322.
+
+        Parameters:
+        -----------
+        cluster: MDAnalysis.ResidueGroup
+            cluster on which to perform analysis on.
+        unwrap: bool, optional
+            Wether or not to unwrap cluster around pbc. Default False.
+        """
+        if unwrap:
+            self.unwrap_cluster(cluster)
+
+        r = np.subtract(
+            cluster.atoms.positions, 
+            cluster.atoms.center_of_geometry()
+            )
+        
+        assert np.abs(np.sum(r)) < 1e-10
+
+        gyration_tensor = np.matmul(r.transpose(), r)
+        gyration_tensor /= cluster.n_residues
+
+        eig_val, eig_vec = np.linalg.eig(gyration_tensor)
+
+        # Sort eig_vals and vector
+        for i in range(2,0,-1):
+            index = np.where(eig_val == np.max(eig_val[:i+1]))[0][0]
+            # Switch columns
+            eig_vec[:, [i, index]] = eig_vec[:, [index,i]]
+            eig_val[i], eig_val[index] = eig_val[index], eig_val[i]
+
+        assert eig_val[2] >= eig_val[1]
+        assert eig_val[1] >= eig_val[0]
+        
+        # Return in nm^2
+        return eig_val/100. 
+
+    def inertia_tensor(self, cluster, unwrap=False, test=True):
+        """
+        Calculte the gyration tensor defined as:
+
+        Ig_ab = 1/M sum_i m_i*(r^2 d_ab - r_a*r_b) 
+        with a,b = {x,y,z} and r = (x,y,z) a d_ab is the
+        kronecker delta. 
+
+        Parameters:
+        -----------
+        cluster: MDAnalysis.ResidueGroup
+            cluster on which to perform analysis on.
+        unwrap: bool, optional
+            Wether or not to unwrap cluster around pbc. Default False.
+        test: bool, optional
+            Useful to compare some raw data with mdanalysis functions
+            on the fly for when you're not sure if you fucke something 
+            up.
+        """
+        if unwrap:
+            self.unwrap_cluster(cluster) 
+        r = np.subtract(cluster.atoms.positions,
+                    cluster.atoms.center_of_mass()
+                    )
+
+        masses = np.asarray([cluster.atoms.masses]*3)
+        inertia_tensor = np.matmul(r.transpose()*masses, r)
+        trace = np.trace(inertia_tensor)
+        trace_array = trace * np.eye(3)
+        inertia_tensor = trace_array - inertia_tensor
+        if test:
+            assert np.sum(inertia_tensor - cluster.moment_of_inertia() < 1e-6)
+        
+        inertia_tensor /= np.sum(cluster.masses)
+
+        print([inertia_tensor[i,i]/100. for i in range(3)])
+        print(np.trace(inertia_tensor)/100.)
+
+        eig_val, eig_vec = np.linalg.eig(inertia_tensor)
+
+        # Sort eig_vals and vector
+        for i in range(2,0,-1):
+            index = np.where(eig_val == np.max(eig_val[:i+1]))[0][0]
+            # Switch columns
+            eig_vec[:, [i, index]] = eig_vec[:, [index,i]]
+            eig_val[i], eig_val[index] = eig_val[index], eig_val[i]
+
+        if test:
+            assert eig_val[2] >= eig_val[1]
+            assert eig_val[1] >= eig_val[0]
+
+        return eig_val/100.
+        
+    def rgyr(self, cluster):
+        pass
+    
     def _create_generator(self, cluster_list):
         """
         Make cluster_list a generator expression.
