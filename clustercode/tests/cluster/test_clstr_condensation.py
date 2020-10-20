@@ -23,45 +23,79 @@ pbc = True
 atom_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
 pbc = True
 method = "pkdtree"  # bruteforce, nsgrid, pkdtree
-ci = atom_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+ci = []
+for clusters in atom_uni.cluster_list:
+    for cluster in clusters:
+        ci.append(
+            atom_uni.condensed_ions(
+                cluster, "SU", "NA", [4.4, 7.6], method=method, pbc=pbc
+            )
+        )
+
 
 tree = copy.deepcopy(ci)
 
 method = "nsgrid"  # bruteforce, nsgrid, pkdtree
-atom_c = atom_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+ci = []
+for clusters in atom_uni.cluster_list:
+    for cluster in clusters:
+        ci.append(
+            atom_uni.condensed_ions(
+                cluster, "SU", "NA", [4.4, 7.6], method=method, pbc=pbc
+            )
+        )
 
-grid = copy.deepcopy(atom_c)
+grid = copy.deepcopy(ci)
 
+ci = []
 method = "bruteforce"  # bruteforce, nsgrid, pkdtree
-ci = atom_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+for clusters in atom_uni.cluster_list:
+    for cluster in clusters:
+        ci.append(
+            atom_uni.condensed_ions(
+                cluster, "SU", "NA", [4.4, 7.6], method=method, pbc=pbc
+            )
+        )
 
 brute = copy.deepcopy(ci)
 
-for t, g, b in zip(tree, grid, brute):
-    for ti, gi, bi in zip(t, g, b):
-        for tii, gii, bii in zip(ti, gi, bi):
-            assert tii == approx(gii)
-            assert tii == approx(bii)
-            assert gii == approx(bii)
+for ti, gi, bi in zip(tree, grid, brute):
+    for tii, gii, bii in zip(ti, gi, bi):
+        assert tii == approx(gii)
+        assert tii == approx(bii)
+        assert gii == approx(bii)
 
 mol_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
 whole_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
 clstr_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
 
 method = "pkdtree"  # bruteforce, nsgrid, pkdtree
-mol = mol_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
-whole = whole_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
-cluster = clstr_uni.condensed_ions("SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+mol, whole, cluster = [], [], []
+for m, w, c in zip(
+    mol_uni.cluster_list, whole_uni.cluster_list, clstr_uni.cluster_list
+):
+    for mi, wi, ci in zip(m, w, c):
+        mol.append(
+            mol_uni.condensed_ions(mi, "SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+        )
+        whole.append(
+            whole_uni.condensed_ions(wi, "SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+        )
+        cluster.append(
+            clstr_uni.condensed_ions(ci, "SU", "NA", [4.4, 7.6], method=method, pbc=pbc)
+        )
 
-for t, g, b, c in zip(tree, mol, whole, cluster):
-    for ti, gi, bi, ci in zip(t, g, b, c):
-        for tii, gii, bii, cii in zip(ti, gi, bi, ci):
+for ti, gi, bi, ci in zip(tree, mol, whole, cluster):
+    for tii, gii, bii, cii in zip(ti, gi, bi, ci):
+        try:
             assert tii == approx(gii)
             assert tii == approx(bii)
             assert tii == approx(cii)
             assert gii == approx(bii)
             assert gii == approx(cii)
             assert bii == approx(cii)
+        except:
+            print(ti, gi, bi, ci)
 
 
 def get_lengths(uni):
