@@ -1,0 +1,34 @@
+# This file was created Fri Oct 16 17:10:09 2020
+# Created by:
+#                       :-) GROMACS - gmx gyrate, 2019 (-:
+# 
+# Executable:   /usr/local/gromacs2019/bin/gmx
+# Data prefix:  /usr/local/gromacs2019
+# Working dir:  /home/mk8118/CODE/clustercode/clustercode/tests/cluster/files
+# Command line:
+#   gmx gyrate -f traj_pbc_problematic_cluster.xtc -s topol_no_solv.tpr -p yes -o gyrate_p.xvg
+# gmx gyrate is part of G R O M A C S:
+#
+# God Rules Over Mankind, Animals, Cosmos and Such
+#
+@    title "Radius of gyration (total and around axes)"
+@    xaxis  label "Time (ps)"
+@    yaxis  label "Rg (nm)"
+@TYPE xy
+@ subtitle "Axes are principal component axes"
+@ view 0.15, 0.15, 0.75, 0.85
+@ legend on
+@ legend box on
+@ legend loctype view
+@ legend 0.78, 0.8
+@ legend length 2
+@ s0 legend "Rg"
+@ s1 legend "Rg\sX\N"
+@ s2 legend "Rg\sY\N"
+@ s3 legend "Rg\sZ\N"
+    429000     3.28795     1.86045     2.97682     3.04934
+    429100     3.22206     1.86464      2.9183     2.96141
+    429200     3.20438     1.89937      2.8877     2.93081
+    429300     3.17957     1.90879     2.83768     2.91949
+    429400     3.17345     1.86303     2.87302     2.90112
+    429500     3.19677     1.83934     2.91293     2.92753

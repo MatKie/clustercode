@@ -204,6 +204,7 @@ class ClusterEnsemble(BaseUniverse):
         traj_pbc_style=None,
         method="pkdtree",
         pbc=True,
+        wrap=False,
         verbosity=0,
     ):
         """
@@ -254,6 +255,10 @@ class ClusterEnsemble(BaseUniverse):
         self._set_pbc_style(traj_pbc_style)
         if pbc:
             box = self.universe.dimensions
+        elif wrap or not pbc:
+            box = None
+        if pbc and wrap:
+            raise RuntimeError("PBC and wrap exclude each other..")
         # Define configuration set
         # This could be done with _select_species if refactored correctly.
         # Improvement: When looping over multiple distances do it first
@@ -267,7 +272,14 @@ class ClusterEnsemble(BaseUniverse):
             for distance in distances:
                 _temporary_condensed_ions.append(
                     self._condensed_ions(
-                        clusters, headgroup, configset, distance, box, method, verbosity
+                        clusters,
+                        headgroup,
+                        configset,
+                        distance,
+                        box,
+                        method,
+                        wrap,
+                        verbosity,
                     )
                 )
             condensed_ions.append(_temporary_condensed_ions)
@@ -281,6 +293,7 @@ class ClusterEnsemble(BaseUniverse):
         distance,
         box=None,
         method="nsgrid",
+        wrap=False,
         verbosity=0,
     ):
         """
@@ -311,6 +324,8 @@ class ClusterEnsemble(BaseUniverse):
         """
         occupancy = []
         for cluster in clusters:
+            if wrap:
+                self.unwrap_cluster(cluster)
             unique_idx = []
             # Define reference set
             if isinstance(headgroup, str):
@@ -477,6 +492,112 @@ class ClusterEnsemble(BaseUniverse):
                 dx[i] += fdiag[i]
 
         return dx
+
+    def gyration(self, cluster, unwrap=False, test=False):
+        """
+        Calculte the gyration tensor defined as:
+
+        Rg_ab = 1/N sum_i a_i*b_i ; a,b = {x,y,z}
+
+        The eigenvalues of these vector are helpful
+        to determine the shape of clusters. See:
+
+        J. Phys. Chem. B 2014, 118, 3864−3880, and:
+        MOLECULAR SIMULATION 2020, VOL. 46, NO. 4, 308–322.
+
+        Parameters:
+        -----------
+        cluster: MDAnalysis.ResidueGroup
+            cluster on which to perform analysis on.
+        unwrap: bool, optional
+            Wether or not to unwrap cluster around pbc. Default False.
+        """
+        if unwrap:
+            self.unwrap_cluster(cluster)
+
+        r = np.subtract(cluster.atoms.positions, cluster.atoms.center_of_geometry())
+
+        assert np.abs(np.sum(r)) < 1e-10
+
+        gyration_tensor = np.matmul(r.transpose(), r)
+        gyration_tensor /= cluster.n_residues
+
+        eig_val, eig_vec = np.linalg.eig(gyration_tensor)
+
+        # Sort eig_vals and vector
+        for i in range(2, 0, -1):
+            index = np.where(eig_val == np.max(eig_val[: i + 1]))[0][0]
+            # Switch columns
+            eig_vec[:, [i, index]] = eig_vec[:, [index, i]]
+            eig_val[i], eig_val[index] = eig_val[index], eig_val[i]
+
+        if test:
+            for i in range(3):
+                t1 = np.matmul(gyration_tensor, eig_vec[:, i])
+                t2 = eig_val[i] * eig_vec[:, i]
+                if not np.allclose(t1, t2):
+                    print(i, t1, t2)
+                    raise RuntimeError("Eigenvector sorting gone wrong!")
+
+            assert eig_val[2] >= eig_val[1]
+            assert eig_val[1] >= eig_val[0]
+
+        # Return in nm^2
+        return eig_val / 100.0
+
+    def inertia_tensor(self, cluster, unwrap=False, test=True):
+        """
+        Calculte the gyration tensor defined as:
+
+        Ig_ab = 1/M sum_i m_i*(r^2 d_ab - r_a*r_b) 
+        with a,b = {x,y,z} and r = (x,y,z) a d_ab is the
+        kronecker delta. 
+
+        Parameters:
+        -----------
+        cluster: MDAnalysis.ResidueGroup
+            cluster on which to perform analysis on.
+        unwrap: bool, optional
+            Wether or not to unwrap cluster around pbc. Default False.
+        test: bool, optional
+            Useful to compare some raw data with mdanalysis functions
+            on the fly for when you're not sure if you fucke something 
+            up.
+        """
+        if unwrap:
+            self.unwrap_cluster(cluster)
+        r = np.subtract(cluster.atoms.positions, cluster.atoms.center_of_mass())
+
+        masses = np.asarray([cluster.atoms.masses] * 3)
+        inertia_tensor = np.matmul(r.transpose() * masses, r)
+        trace = np.trace(inertia_tensor)
+        trace_array = trace * np.eye(3)
+        inertia_tensor = trace_array - inertia_tensor
+        if test:
+            assert np.sum(inertia_tensor - cluster.moment_of_inertia() < 1e-6)
+
+        inertia_tensor /= np.sum(cluster.masses)
+
+        print([inertia_tensor[i, i] / 100.0 for i in range(3)])
+        print(np.trace(inertia_tensor) / 100.0)
+
+        eig_val, eig_vec = np.linalg.eig(inertia_tensor)
+
+        # Sort eig_vals and vector
+        for i in range(2, 0, -1):
+            index = np.where(eig_val == np.max(eig_val[: i + 1]))[0][0]
+            # Switch columns
+            eig_vec[:, [i, index]] = eig_vec[:, [index, i]]
+            eig_val[i], eig_val[index] = eig_val[index], eig_val[i]
+
+        if test:
+            assert eig_val[2] >= eig_val[1]
+            assert eig_val[1] >= eig_val[0]
+
+        return eig_val / 100.0
+
+    def rgyr(self, cluster):
+        pass
 
     def _create_generator(self, cluster_list):
         """
