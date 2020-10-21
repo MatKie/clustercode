@@ -328,12 +328,22 @@ class ClusterEnsemble(BaseUniverse):
 
         # While not all added, loop over added ones and then to be
         # added ones to find next one
-        added = [imin]
         nr_mol = resgroup.n_residues
+        to_be_added = [i for i in range(nr_mol)]
+        added = [to_be_added.pop(imin)]
         nr_added = 1
+        
+        #Setup the COG matrices
+        refset_cog = resgroup[added[0]].atoms.center(None)
+
+        configset_cog = np.zeros((nr_mol-1, 3))
+        for i, index in enumerate(to_be_added):
+            configset_cog[i, :] = resgroup[index].atoms.center(None)
+        
         while nr_added < nr_mol:
             # imin, jmin = self._unwrap_bruteforce(resgroup, added, box)
-            imin, jmin = self._unwrap_ns(resgroup, added, box)
+            imin, jmin = self._unwrap_ns(refset_cog, configset_cog, 
+            added, to_be_added, box)
             # Displace the next one, this is done to replace the molecule
             # by it's nearest neighbour.
             cog_i = resgroup[imin].atoms.center(weights=weights)
@@ -351,33 +361,23 @@ class ClusterEnsemble(BaseUniverse):
                     )
                 for atom in resgroup[jmin].atoms:
                     atom.position += shift
+                cog_j += shift
 
+            # Reshape COG and lists
+            refset_cog = np.vstack((refset_cog, cog_j))
             nr_added += 1
             added.append(jmin)
 
-    def _unwrap_ns(self, resgroup, added, box, method="pkdtree"):
+            _index = to_be_added.index(jmin)
+            configset_cog = np.delete(configset_cog, _index, 0)
+            del to_be_added[_index]
+
+    def _unwrap_ns(self, refset_cog, configset_cog, 
+                   added, to_be_added, box, method="pkdtree"):
         # Optimisation idea: pass refset and only increment outside of
         # this function.
         # Optimisation idea: construct the refset_cog matrix somewhere else
         # and here just select the rows etc..
-        refset = resgroup[added[0]]
-        refset_cog = np.zeros((len(added), 3))
-
-        refset_cog[0, :] = resgroup[added[0]].atoms.center(None)
-        if len(added) == 1:
-            refset_cog = refset_cog[0]
-
-        for i, index in enumerate(added[1:]):
-            refset += resgroup[index]
-            refset_cog[i + 1, :] = resgroup[index].atoms.center(None)
-
-        configset = resgroup.difference(refset)
-        configset_cog = np.zeros((len(configset), 3))
-        for i, res in enumerate(configset):
-            configset_cog[i, :] = res.atoms.center(None)
-        if len(configset) == 1:
-            configset_cog = configset_cog[0]
-
         distances = []
         dist = 8.0
         while len(distances) < 1:
@@ -394,7 +394,7 @@ class ClusterEnsemble(BaseUniverse):
         minpair = np.where(distances == np.amin(distances))[0][0]
 
         imin = added[pairs[minpair][0]]
-        jmin = np.where(np.asarray(resgroup) == configset[pairs[minpair][1]])[0][0]
+        jmin = to_be_added[pairs[minpair][1]]
         return imin, jmin
 
     def _unwrap_bruteforce(self, resgroup, added, box, weights=None):
