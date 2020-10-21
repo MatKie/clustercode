@@ -197,6 +197,7 @@ class ClusterEnsemble(BaseUniverse):
 
     def condensed_ions(
         self,
+        cluster,
         headgroup,
         ion,
         distances,
@@ -209,15 +210,16 @@ class ClusterEnsemble(BaseUniverse):
     ):
         """
         Calculate number of species ion around each distance specified
-        in distances around each cluster (defined in cluster_list) at
-        each time. The calculation relies on 
-        MDAnalsys.lib.distances.capped_distances(), there is an issue
-        with this code see this PR:
+        in distances around each cluster a cluster. 
+        MDAnalsys.lib.distances.capped_distances() is used for this, 
+        there is an issue with this code see this PR:
             https://github.com/MDAnalysis/mdanalysis/pull/2937
         as long as this is not fixed, I put pkdtree as standard method.
 
         Parameters
         ----------
+        cluster: MDAnalysis.ResidueGroup
+            cluster on which to perform analysis on.
         headgroup : str
             atom identifier of the headgroup, can also be a specific
             part of the headgroup or even a tailgroup.
@@ -241,24 +243,19 @@ class ClusterEnsemble(BaseUniverse):
 
         Returns:
         --------
-        condensed_ions: list of list of lists of floats
-            At each time there is a list for each distance with a list 
-            of number of ions per cluster, example when there are two
-            timesteps with 2 and 3 clusters for two distances each we 
-            have:
-            [ [ [c1_t1_d1, c2_t1_d1], [c1_t1_d2, c2_t1_d2] ],
-              [ [c1_t2_d1, c2_t2_d1], [c1_t2_d2, c2_t2_d2] ]
-            ]
+        condensed_ions: list of ints
+            the number of ions around headgroup for each distance.
         """
         condensed_ions = []
         # Handle pbc
-        self._set_pbc_style(traj_pbc_style)
+        # self._set_pbc_style(traj_pbc_style)
         if pbc:
             box = self.universe.dimensions
-        elif wrap or not pbc:
+        else:
             box = None
-        if pbc and wrap:
-            raise RuntimeError("PBC and wrap exclude each other..")
+        if wrap:
+            self.unwrap_cluster(cluster)
+
         # Define configuration set
         # This could be done with _select_species if refactored correctly.
         # Improvement: When looping over multiple distances do it first
@@ -267,71 +264,15 @@ class ClusterEnsemble(BaseUniverse):
             ion = [ion]
         configset = self.universe.select_atoms("name {:s}".format(" ".join(ion)))
         configset = configset.atoms.positions
-        for clusters in self.cluster_list:
-            _temporary_condensed_ions = []
-            for distance in distances:
-                _temporary_condensed_ions.append(
-                    self._condensed_ions(
-                        clusters,
-                        headgroup,
-                        configset,
-                        distance,
-                        box,
-                        method,
-                        wrap,
-                        verbosity,
-                    )
-                )
-            condensed_ions.append(_temporary_condensed_ions)
-        return condensed_ions
+        # Define reference set
+        if isinstance(headgroup, str):
+            headgroup = [headgroup]
+        refset = cluster.atoms.select_atoms("name {:s}".format(" ".join(headgroup)))
+        refset = refset.atoms.positions
 
-    def _condensed_ions(
-        self,
-        clusters,
-        headgroup,
-        configset,
-        distance,
-        box=None,
-        method="nsgrid",
-        wrap=False,
-        verbosity=0,
-    ):
-        """
-        Core routine to condensed_ions
-
-        Parameters
-        ----------
-        clusters : list of resgroups
-            clusters as determined in cluster_analysis
-        headgroup : str, list
-            see condensed_ions
-        configset : np.array
-            positions of potentially condensed species
-        distance : float
-            distance to be evaluated
-        box : np.array, optional
-            when pbc are , by default None
-        method : str, optional
-            see condensed_ions(), by default "nsgrid"
-        verbosity : int, optional
-            Chattiness, by default 0
-
-        Returns
-        -------
-        list of float
-            the number of condensed species for each cluster (at given 
-            distance and time).
-        """
-        occupancy = []
-        for cluster in clusters:
-            if wrap:
-                self.unwrap_cluster(cluster)
+        condensed_ions = []
+        for distance in distances:
             unique_idx = []
-            # Define reference set
-            if isinstance(headgroup, str):
-                headgroup = [headgroup]
-            refset = cluster.atoms.select_atoms("name {:s}".format(" ".join(headgroup)))
-            refset = refset.atoms.positions
             # Call capped_distance for pairs
             pairs = MDAnalysis.lib.distances.capped_distance(
                 refset,
@@ -346,9 +287,9 @@ class ClusterEnsemble(BaseUniverse):
                 unique_idx = MDAnalysis.lib.util.unique_int_1d(
                     np.asarray(pairs[:, 1], dtype=np.int64)
                 )
-            occupancy.append(len(unique_idx))
+            condensed_ions.append(len(unique_idx))
 
-        return occupancy
+        return condensed_ions
 
     def unwrap_cluster(self, resgroup, box=None, unwrap=True, verbosity=0):
         """
