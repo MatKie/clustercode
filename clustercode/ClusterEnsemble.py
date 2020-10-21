@@ -293,17 +293,21 @@ class ClusterEnsemble(BaseUniverse):
 
     def unwrap_cluster(self, resgroup, box=None, unwrap=True, verbosity=0):
         """
-        Make cluster which crosses pbc not cross pbc. 
+        Make cluster which crosses pbc not cross pbc. Algorithm inspired
+        by GROMACS but optimised so that it runs somewhat fast in
+        python.
 
         Parameters
         ----------
         resgroup : MDAnalysis.ResidueGroup
             Cluster residues
         box : boxvector, optional
-            boxvector, by default None
+            boxvector. If None is given taken from trajectory, 
+            by default None
         unwrap : bool, optional
             Wether or not to make molecules whole before treatment 
-            (only necessary if pbc = atom in trjconv), by default True
+            (only necessary if pbc = atom in trjconv) but doesn't hurt.
+            By default True
         verbosity : int, optional
             Chattiness, by default 0
         """
@@ -326,16 +330,28 @@ class ClusterEnsemble(BaseUniverse):
                 rmin = tmin
                 imin = i
 
-        # While not all added, loop over added ones and then to be
-        # added ones to find next one
-        added = [imin]
+        # added and to_be_added store indices of residues
+        # in resgroup
         nr_mol = resgroup.n_residues
+        to_be_added = [i for i in range(nr_mol)]
+        added = [to_be_added.pop(imin)]
         nr_added = 1
+        
+        #Setup the COG matrices
+        refset_cog = resgroup[added[0]].atoms.center(None)
+
+        configset_cog = np.zeros((nr_mol-1, 3))
+        for i, index in enumerate(to_be_added):
+            configset_cog[i, :] = resgroup[index].atoms.center(None)
+        
         while nr_added < nr_mol:
-            # imin, jmin = self._unwrap_bruteforce(resgroup, added, box)
-            imin, jmin = self._unwrap_ns(resgroup, added, box)
-            # Displace the next one, this is done to replace the molecule
-            # by it's nearest neighbour.
+            # Find indices of nearest neighbours of a) res in micelle
+            # (imin) and b) res not yet in micelle (jmin). Indices
+            # w.r.t. resgroup
+            imin, jmin = self._unwrap_ns(refset_cog, configset_cog, 
+            added, to_be_added, box)
+            # Translate jmin by an appropriate vector if separated by a
+            # pbc from rest of micelle.
             cog_i = resgroup[imin].atoms.center(weights=weights)
             cog_j = resgroup[jmin].atoms.center(weights=weights)
 
@@ -351,33 +367,24 @@ class ClusterEnsemble(BaseUniverse):
                     )
                 for atom in resgroup[jmin].atoms:
                     atom.position += shift
+                cog_j += shift
 
+            # Add added res COG to res already in micelle
+            refset_cog = np.vstack((refset_cog, cog_j))
             nr_added += 1
             added.append(jmin)
 
-    def _unwrap_ns(self, resgroup, added, box, method="pkdtree"):
-        # Optimisation idea: pass refset and only increment outside of
-        # this function.
-        # Optimisation idea: construct the refset_cog matrix somewhere else
-        # and here just select the rows etc..
-        refset = resgroup[added[0]]
-        refset_cog = np.zeros((len(added), 3))
+            # Remove added res from res not already in micelle.
+            _index = to_be_added.index(jmin)
+            configset_cog = np.delete(configset_cog, _index, 0)
+            del to_be_added[_index]
 
-        refset_cog[0, :] = resgroup[added[0]].atoms.center(None)
-        if len(added) == 1:
-            refset_cog = refset_cog[0]
-
-        for i, index in enumerate(added[1:]):
-            refset += resgroup[index]
-            refset_cog[i + 1, :] = resgroup[index].atoms.center(None)
-
-        configset = resgroup.difference(refset)
-        configset_cog = np.zeros((len(configset), 3))
-        for i, res in enumerate(configset):
-            configset_cog[i, :] = res.atoms.center(None)
-        if len(configset) == 1:
-            configset_cog = configset_cog[0]
-
+    def _unwrap_ns(self, refset_cog, configset_cog, 
+                   added, to_be_added, box, method="pkdtree"):
+        '''
+        Find NN in refset_cog and configset_cog and pass back
+        the indices stored in added and to_be added. 
+        '''
         distances = []
         dist = 8.0
         while len(distances) < 1:
@@ -394,25 +401,7 @@ class ClusterEnsemble(BaseUniverse):
         minpair = np.where(distances == np.amin(distances))[0][0]
 
         imin = added[pairs[minpair][0]]
-        jmin = np.where(np.asarray(resgroup) == configset[pairs[minpair][1]])[0][0]
-        return imin, jmin
-
-    def _unwrap_bruteforce(self, resgroup, added, box, weights=None):
-        # While not all added, loop over added ones and then to be
-        # added ones to find next one
-        rmin = np.sum(box[:3]) * np.sum(box[:3])
-        for index_added in added:
-            cog_i = resgroup[index_added].atoms.center(weights=weights)
-            for j, residue in enumerate(resgroup):
-                if index_added == j or j in added:
-                    continue
-                # Order?
-                tmin = self._pbc(residue.atoms.center(weights=weights), cog_i, box)
-                tmin = np.dot(tmin, tmin)
-                if tmin < rmin:
-                    rmin = tmin
-                    jmin = j
-                    imin = index_added
+        jmin = to_be_added[pairs[minpair][1]]
         return imin, jmin
 
     @staticmethod
