@@ -17,7 +17,7 @@ clstr_uni = ClusterEnsemble(tpr, cluster, ["C1", "C2", "C3", "C4"])
 
 work_in = "Residue"  # atom, Residue
 measure = "b2b"  # b2b, COM, COG
-pbc = False
+pbc = True 
 
 
 atom_uni.cluster_analysis(work_in=work_in, measure=measure, pbc=pbc)
@@ -112,12 +112,6 @@ atom_list = get_lengths(atom_uni)
 mol_list = get_lengths(mol_uni)
 whole_list = get_lengths(whole_uni)
 clstr_list = get_lengths(clstr_uni)
-print("Clusterlists")
-
-print(atom_list)
-print(mol_list)
-print(whole_list)
-print(clstr_list)
 
 
 for a, m, w, c in zip(atom_list, mol_list, whole_list, clstr_list):

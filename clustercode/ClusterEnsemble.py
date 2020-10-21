@@ -210,10 +210,9 @@ class ClusterEnsemble(BaseUniverse):
     ):
         """
         Calculate number of species ion around each distance specified
-        in distances around each cluster (defined in cluster_list) at
-        each time. The calculation relies on 
-        MDAnalsys.lib.distances.capped_distances(), there is an issue
-        with this code see this PR:
+        in distances around each cluster a cluster. 
+        MDAnalsys.lib.distances.capped_distances() is used for this, 
+        there is an issue with this code see this PR:
             https://github.com/MDAnalysis/mdanalysis/pull/2937
         as long as this is not fixed, I put pkdtree as standard method.
 
@@ -244,14 +243,8 @@ class ClusterEnsemble(BaseUniverse):
 
         Returns:
         --------
-        condensed_ions: list of list of lists of floats
-            At each time there is a list for each distance with a list 
-            of number of ions per cluster, example when there are two
-            timesteps with 2 and 3 clusters for two distances each we 
-            have:
-            [ [ [c1_t1_d1, c2_t1_d1], [c1_t1_d2, c2_t1_d2] ],
-              [ [c1_t2_d1, c2_t2_d1], [c1_t2_d2, c2_t2_d2] ]
-            ]
+        condensed_ions: list of ints
+            the number of ions around headgroup for each distance.
         """
         condensed_ions = []
         # Handle pbc
