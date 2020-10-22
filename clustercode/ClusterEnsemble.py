@@ -426,7 +426,7 @@ class ClusterEnsemble(BaseUniverse):
         return dx
 
     @staticmethod
-    def _sort_eig(eig_val, eig_vec, test=False):
+    def _sort_eig(eig_val, eig_vec, test=False, tensor=False):
         for i in range(2, 0, -1):
             index = np.where(eig_val == np.max(eig_val[: i + 1]))[0][0]
             # Switch columns
@@ -434,12 +434,13 @@ class ClusterEnsemble(BaseUniverse):
             eig_val[i], eig_val[index] = eig_val[index], eig_val[i]
 
         if test:
-            for i in range(3):
-                t1 = np.matmul(gyration_tensor, eig_vec[:, i])
-                t2 = eig_val[i] * eig_vec[:, i]
-                if not np.allclose(t1, t2):
-                    print(i, t1, t2)
-                    raise RuntimeError("Eigenvector sorting gone wrong!")
+            if isinstance(tensor, np.ndarray):
+                for i in range(3):
+                    t1 = np.matmul(tensor, eig_vec[:, i])
+                    t2 = eig_val[i] * eig_vec[:, i]
+                    if not np.allclose(t1, t2):
+                        print(i, t1, t2)
+                        raise RuntimeError("Eigenvector sorting gone wrong!")
 
             assert eig_val[2] >= eig_val[1]
             assert eig_val[1] >= eig_val[0]
@@ -452,8 +453,11 @@ class ClusterEnsemble(BaseUniverse):
 
         if weights is None:
             weights = np.ones(r.shape)
+        else:
+            weights = np.broadcast_to(weights, (3, weights.shape[0])).transpose()
+
         if test:
-            assert np.abs(np.sum(r * weights)) < 1e-10
+            assert np.abs(np.sum(r * weights)) < 1e-7
 
         gyration_tensor = np.matmul(r.transpose(), r * weights)
 
@@ -488,7 +492,9 @@ class ClusterEnsemble(BaseUniverse):
         eig_val, eig_vec = np.linalg.eig(gyration_tensor)
 
         # Sort eig_vals and vector
-        eig_val, eig_vec = self._sort_eig(eig_val, eig_vec)
+        eig_val, eig_vec = self._sort_eig(
+            eig_val, eig_vec, test=test, tensor=gyration_tensor
+        )
 
         # Return in nm^2
         return eig_val / 100.0
@@ -514,10 +520,9 @@ class ClusterEnsemble(BaseUniverse):
         """
         if unwrap:
             self.unwrap_cluster(cluster)
-        r = np.subtract(cluster.atoms.positions, cluster.atoms.center_of_mass())
 
-        masses = np.asarray([cluster.atoms.masses] * 3)
-        inertia_tensor = np.matmul(r.transpose() * masses, r)
+        masses = cluster.atoms.masses
+        inertia_tensor = self._gyration_tensor(cluster, masses, test=test)
         trace = np.trace(inertia_tensor)
         trace_array = trace * np.eye(3)
         inertia_tensor = trace_array - inertia_tensor
@@ -529,15 +534,9 @@ class ClusterEnsemble(BaseUniverse):
         eig_val, eig_vec = np.linalg.eig(inertia_tensor)
 
         # Sort eig_vals and vector
-        for i in range(2, 0, -1):
-            index = np.where(eig_val == np.max(eig_val[: i + 1]))[0][0]
-            # Switch columns
-            eig_vec[:, [i, index]] = eig_vec[:, [index, i]]
-            eig_val[i], eig_val[index] = eig_val[index], eig_val[i]
-
-        if test:
-            assert eig_val[2] >= eig_val[1]
-            assert eig_val[1] >= eig_val[0]
+        eig_val, eig_vec = self._sort_eig(
+            eig_val, eig_vec, test=test, tensor=inertia_tensor
+        )
 
         return eig_val / 100.0
 

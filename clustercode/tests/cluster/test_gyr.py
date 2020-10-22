@@ -14,9 +14,9 @@ clstr.cluster_analysis()
 for clusters in clstr.cluster_list:
     for cluster in clusters:
         # clstr.unwrap_cluster(cluster)
-        print(np.sqrt(clstr.gyration(cluster, unwrap=True, test=True)))
-        # rg2 = clstr.inertia_tensor(cluster, unwrap=True)
-        # rg = [np.sqrt(item) for item in rg2]
-        # print(rg)
+        # print(np.sqrt(clstr.gyration(cluster, unwrap=True, test=True)))
+        rg2 = clstr.inertia_tensor(cluster, test=True, unwrap=True)
+        rg = [np.sqrt(item) for item in rg2]
+        print(rg)
         # print(np.sqrt(sum(rg2)))
 
