@@ -336,20 +336,21 @@ class ClusterEnsemble(BaseUniverse):
         to_be_added = [i for i in range(nr_mol)]
         added = [to_be_added.pop(imin)]
         nr_added = 1
-        
-        #Setup the COG matrices
+
+        # Setup the COG matrices
         refset_cog = resgroup[added[0]].atoms.center(None)
 
-        configset_cog = np.zeros((nr_mol-1, 3))
+        configset_cog = np.zeros((nr_mol - 1, 3))
         for i, index in enumerate(to_be_added):
             configset_cog[i, :] = resgroup[index].atoms.center(None)
-        
+
         while nr_added < nr_mol:
             # Find indices of nearest neighbours of a) res in micelle
             # (imin) and b) res not yet in micelle (jmin). Indices
             # w.r.t. resgroup
-            imin, jmin = self._unwrap_ns(refset_cog, configset_cog, 
-            added, to_be_added, box)
+            imin, jmin = self._unwrap_ns(
+                refset_cog, configset_cog, added, to_be_added, box
+            )
             # Translate jmin by an appropriate vector if separated by a
             # pbc from rest of micelle.
             cog_i = resgroup[imin].atoms.center(weights=weights)
@@ -379,12 +380,13 @@ class ClusterEnsemble(BaseUniverse):
             configset_cog = np.delete(configset_cog, _index, 0)
             del to_be_added[_index]
 
-    def _unwrap_ns(self, refset_cog, configset_cog, 
-                   added, to_be_added, box, method="pkdtree"):
-        '''
+    def _unwrap_ns(
+        self, refset_cog, configset_cog, added, to_be_added, box, method="pkdtree"
+    ):
+        """
         Find NN in refset_cog and configset_cog and pass back
         the indices stored in added and to_be added. 
-        '''
+        """
         distances = []
         dist = 8.0
         while len(distances) < 1:
@@ -423,6 +425,40 @@ class ClusterEnsemble(BaseUniverse):
 
         return dx
 
+    @staticmethod
+    def _sort_eig(eig_val, eig_vec, test=False):
+        for i in range(2, 0, -1):
+            index = np.where(eig_val == np.max(eig_val[: i + 1]))[0][0]
+            # Switch columns
+            eig_vec[:, [i, index]] = eig_vec[:, [index, i]]
+            eig_val[i], eig_val[index] = eig_val[index], eig_val[i]
+
+        if test:
+            for i in range(3):
+                t1 = np.matmul(gyration_tensor, eig_vec[:, i])
+                t2 = eig_val[i] * eig_vec[:, i]
+                if not np.allclose(t1, t2):
+                    print(i, t1, t2)
+                    raise RuntimeError("Eigenvector sorting gone wrong!")
+
+            assert eig_val[2] >= eig_val[1]
+            assert eig_val[1] >= eig_val[0]
+
+        return eig_val, eig_vec
+
+    @staticmethod
+    def _gyration_tensor(cluster, weights, test=False):
+        r = np.subtract(cluster.atoms.positions, cluster.atoms.center(weights))
+
+        if weights is None:
+            weights = np.ones(r.shape)
+        if test:
+            assert np.abs(np.sum(r * weights)) < 1e-10
+
+        gyration_tensor = np.matmul(r.transpose(), r * weights)
+
+        return gyration_tensor
+
     def gyration(self, cluster, unwrap=False, test=False):
         """
         Calculte the gyration tensor defined as:
@@ -445,32 +481,14 @@ class ClusterEnsemble(BaseUniverse):
         if unwrap:
             self.unwrap_cluster(cluster)
 
-        r = np.subtract(cluster.atoms.positions, cluster.atoms.center_of_geometry())
+        gyration_tensor = self._gyration_tensor(cluster, None, test=test)
 
-        assert np.abs(np.sum(r)) < 1e-10
-
-        gyration_tensor = np.matmul(r.transpose(), r)
         gyration_tensor /= cluster.n_residues
 
         eig_val, eig_vec = np.linalg.eig(gyration_tensor)
 
         # Sort eig_vals and vector
-        for i in range(2, 0, -1):
-            index = np.where(eig_val == np.max(eig_val[: i + 1]))[0][0]
-            # Switch columns
-            eig_vec[:, [i, index]] = eig_vec[:, [index, i]]
-            eig_val[i], eig_val[index] = eig_val[index], eig_val[i]
-
-        if test:
-            for i in range(3):
-                t1 = np.matmul(gyration_tensor, eig_vec[:, i])
-                t2 = eig_val[i] * eig_vec[:, i]
-                if not np.allclose(t1, t2):
-                    print(i, t1, t2)
-                    raise RuntimeError("Eigenvector sorting gone wrong!")
-
-            assert eig_val[2] >= eig_val[1]
-            assert eig_val[1] >= eig_val[0]
+        eig_val, eig_vec = self._sort_eig(eig_val, eig_vec)
 
         # Return in nm^2
         return eig_val / 100.0
@@ -507,9 +525,6 @@ class ClusterEnsemble(BaseUniverse):
             assert np.sum(inertia_tensor - cluster.moment_of_inertia() < 1e-6)
 
         inertia_tensor /= np.sum(cluster.masses)
-
-        print([inertia_tensor[i, i] / 100.0 for i in range(3)])
-        print(np.trace(inertia_tensor) / 100.0)
 
         eig_val, eig_vec = np.linalg.eig(inertia_tensor)
 
