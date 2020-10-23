@@ -561,7 +561,7 @@ class ClusterEnsemble(BaseUniverse):
         if test:
             assert np.sum(inertia_tensor - cluster.moment_of_inertia() < 1e-6)
 
-        # inertia_tensor /= np.sum(cluster.masses)
+        inertia_tensor /= np.sum(cluster.masses)
 
         eig_val, eig_vec = np.linalg.eig(inertia_tensor)
 
