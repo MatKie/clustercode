@@ -505,7 +505,7 @@ class ClusterEnsemble(BaseUniverse):
             f_32 and f_21, as defined above.
         """
 
-        rg_33, rg_22, rg_11 = self.gyration(cluster, unwrap, test)
+        rg_33, rg_22, rg_11 = np.sqrt(self.gyration(cluster, unwrap, test))
 
         f_32 = (rg_33 - rg_22) / rg_33
         f_21 = (rg_22 - rg_11) / rg_33
