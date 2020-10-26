@@ -478,6 +478,40 @@ class ClusterEnsemble(BaseUniverse):
 
         return gyration_tensor
 
+    def calc_f_factors(self, cluster, unwrap=False, test=False):
+        """
+        Calculate eigenvalues of gryation tensor (see self.gyration())
+        and calculate f_32 and f_21 from their square roots:
+
+        f_32 = (Rg_33 - Rg_22) / Rg_33
+        f_21 = (Rg_22 - Rg_11) / Rg_33
+
+        Rg_33 is the eigenvalue belonging to the principal axis -- largest
+        value.
+
+        J. Phys. Chem. B 2014, 118, 3864−3880, and:
+        MOLECULAR SIMULATION 2020, VOL. 46, NO. 4, 308–322.
+
+        Parameters:
+        -----------
+        cluster: MDAnalysis.ResidueGroup
+            cluster on which to perform analysis on.
+        unwrap: bool, optional
+            Wether or not to unwrap cluster around pbc. Default False.
+        
+        Returns:
+        --------
+        f-factors : tuple of float
+            f_32 and f_21, as defined above.
+        """
+
+        rg_33, rg_22, rg_11 = self.gyration(cluster, unwrap, test)
+
+        f_32 = (rg_33 - rg_22) / rg_33
+        f_21 = (rg_22 - rg_11) / rg_33
+
+        return (f_32, f_21)
+
     def gyration(self, cluster, unwrap=False, test=False):
         """
         Calculte the gyration tensor defined as:
