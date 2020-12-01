@@ -512,6 +512,7 @@ class ClusterEnsemble(BaseUniverse):
 
         return (f_32, f_21)
 
+
     def gyration(self, cluster, unwrap=False, test=False):
         """
         Calculte the gyration tensor defined as:
