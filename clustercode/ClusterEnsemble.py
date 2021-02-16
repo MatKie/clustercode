@@ -183,7 +183,7 @@ class ClusterEnsemble(BaseUniverse):
             if self.times is not None:
                 if time.time > max(self.times) or time.time < min(self.times):
                     continue
-            self.cluster_list.append(cluster_algorithm())
+            self.cluster_list.append(cluster_algorithm(cut_off))
             self.cluster_sizes.append(
                 [len(cluster) for cluster in self.cluster_list[-1]]
             )
