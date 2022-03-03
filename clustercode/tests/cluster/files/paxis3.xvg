@@ -1,0 +1,32 @@
+# This file was created Fri Mar  4 16:28:29 2022
+# Created by:
+#                    :-) GROMACS - gmx principal, 2019.3 (-:
+# 
+# Executable:   /usr/local/gromacs/bin/gmx
+# Data prefix:  /usr/local/gromacs
+# Working dir:  /Users/matthias/CODE/clustercode/clustercode/tests/cluster/files
+# Command line:
+#   gmx principal -f traj_pbc_problematic_cluster.xtc -s topol_no_solv.tpr -tu s
+# gmx principal is part of G R O M A C S:
+#
+# GRowing Old MAkes el Chrono Sweat
+#
+@    title "Principal axis 3 (minor axis)"
+@    xaxis  label "Time (ps)"
+@    yaxis  label "Component (nm)"
+@TYPE xy
+@ view 0.15, 0.15, 0.75, 0.85
+@ legend on
+@ legend box on
+@ legend loctype view
+@ legend 0.78, 0.8
+@ legend length 2
+@ s0 legend "X component"
+@ s1 legend "Y component"
+@ s2 legend "Z component"
+429000.0000000000        0.8462848067     0.5288332105    -0.0643234029
+429100.0000000000        0.8177422881     0.5350719094    -0.2121215165
+429200.0000000000        0.7339857221     0.5442451239     0.4062784910
+429300.0000000000        0.6900444627     0.4029858410    -0.6011996865
+429400.0000000000        0.7897895575     0.4930792749    -0.3648359478
+429500.0000000000        0.6899394393     0.7005775571     0.1821391284

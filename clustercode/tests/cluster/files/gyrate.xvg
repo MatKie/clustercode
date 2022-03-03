@@ -1,20 +1,21 @@
-# This file was created Fri Oct 16 17:09:40 2020
+# This file was created Fri Mar  4 15:44:50 2022
 # Created by:
-#                       :-) GROMACS - gmx gyrate, 2019 (-:
+#                      :-) GROMACS - gmx gyrate, 2019.3 (-:
 # 
-# Executable:   /usr/local/gromacs2019/bin/gmx
-# Data prefix:  /usr/local/gromacs2019
-# Working dir:  /home/mk8118/CODE/clustercode/clustercode/tests/cluster/files
+# Executable:   /usr/local/gromacs/bin/gmx
+# Data prefix:  /usr/local/gromacs
+# Working dir:  /Users/matthias/CODE/clustercode/clustercode/tests/cluster/files
 # Command line:
-#   gmx gyrate -f traj_pbc_problematic_cluster.xtc -s topol_no_solv.tpr
+#   gmx gyrate -f traj_pbc_problematic_cluster.xtc -s topol_no_solv.tpr -p yes
 # gmx gyrate is part of G R O M A C S:
 #
-# Gallium Rubidium Oxygen Manganese Argon Carbon Silicon
+# Glycine aRginine prOline Methionine Alanine Cystine Serine
 #
 @    title "Radius of gyration (total and around axes)"
 @    xaxis  label "Time (ps)"
 @    yaxis  label "Rg (nm)"
 @TYPE xy
+@ subtitle "Axes are principal component axes"
 @ view 0.15, 0.15, 0.75, 0.85
 @ legend on
 @ legend box on
@@ -25,9 +26,9 @@
 @ s1 legend "Rg\sX\N"
 @ s2 legend "Rg\sY\N"
 @ s3 legend "Rg\sZ\N"
-    429000     3.28795     2.76646     2.30098     2.94506
-    429100     3.22206     2.66518     2.27282     2.91452
-    429200     3.20438     2.64873     2.27815     2.88622
-    429300     3.17957      2.6237     2.26982     2.86067
-    429400     3.17345     2.61833     2.24914     2.86833
-    429500     3.19677      2.4606     2.43854     2.90478
+    429000     3.28795     1.86045     2.97682     3.04934
+    429100     3.22206     1.86464      2.9183     2.96141
+    429200     3.20438     1.89937      2.8877     2.93081
+    429300     3.17957     1.90879     2.83768     2.91949
+    429400     3.17345     1.86303     2.87302     2.90112
+    429500     3.19677     1.83934     2.91293     2.92753

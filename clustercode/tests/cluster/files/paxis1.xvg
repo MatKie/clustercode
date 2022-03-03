@@ -1,0 +1,32 @@
+# This file was created Fri Mar  4 16:28:28 2022
+# Created by:
+#                    :-) GROMACS - gmx principal, 2019.3 (-:
+# 
+# Executable:   /usr/local/gromacs/bin/gmx
+# Data prefix:  /usr/local/gromacs
+# Working dir:  /Users/matthias/CODE/clustercode/clustercode/tests/cluster/files
+# Command line:
+#   gmx principal -f traj_pbc_problematic_cluster.xtc -s topol_no_solv.tpr -tu s
+# gmx principal is part of G R O M A C S:
+#
+# GROwing Monsters And Cloning Shrimps
+#
+@    title "Principal axis 1 (major axis)"
+@    xaxis  label "Time (ps)"
+@    yaxis  label "Component (nm)"
+@TYPE xy
+@ view 0.15, 0.15, 0.75, 0.85
+@ legend on
+@ legend box on
+@ legend loctype view
+@ legend 0.78, 0.8
+@ legend length 2
+@ s0 legend "X component"
+@ s1 legend "Y component"
+@ s2 legend "Z component"
+429000.0000000000       -0.5307416320     0.8265321851    -0.1875042617
+429100.0000000000       -0.5604230165     0.8241901994    -0.0814654157
+429200.0000000000       -0.5551566482     0.8253789544    -0.1027162224
+429300.0000000000       -0.5620678067     0.8216924071    -0.0943469703
+429400.0000000000       -0.5599502921     0.8223823905    -0.1007115990
+429500.0000000000       -0.6959593892     0.7111911178    -0.0992357060

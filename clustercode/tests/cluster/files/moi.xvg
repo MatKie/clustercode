@@ -1,0 +1,32 @@
+# This file was created Fri Mar  4 16:28:29 2022
+# Created by:
+#                    :-) GROMACS - gmx principal, 2019.3 (-:
+# 
+# Executable:   /usr/local/gromacs/bin/gmx
+# Data prefix:  /usr/local/gromacs
+# Working dir:  /Users/matthias/CODE/clustercode/clustercode/tests/cluster/files
+# Command line:
+#   gmx principal -f traj_pbc_problematic_cluster.xtc -s topol_no_solv.tpr -tu s
+# gmx principal is part of G R O M A C S:
+#
+# Good gRace! Old Maple Actually Chews Slate
+#
+@    title "Moments of inertia around inertial axes"
+@    xaxis  label "Time (ps)"
+@    yaxis  label "I (au nm\S2\N)"
+@TYPE xy
+@ view 0.15, 0.15, 0.75, 0.85
+@ legend on
+@ legend box on
+@ legend loctype view
+@ legend 0.78, 0.8
+@ legend length 2
+@ s0 legend "Axis 1 (major)"
+@ s1 legend "Axis 2 (middle)"
+@ s2 legend "Axis 3 (minor)"
+429000.0000000000     350891.2500000000  898337.9375000000  942643.5000000000
+429100.0000000000     352470.6250000000  863365.5000000000  889063.4375000000
+429200.0000000000     365722.6250000000  845353.4375000000  870784.2500000000
+429300.0000000000     369359.1250000000  816319.7500000000  864069.9375000000
+429400.0000000000     351862.3125000000  836780.1875000000  853226.6875000000
+429500.0000000000     342970.8750000000  860187.8750000000  868835.2500000000
