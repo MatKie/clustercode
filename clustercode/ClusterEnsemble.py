@@ -1022,6 +1022,7 @@ class ClusterEnsemble(BaseUniverse):
         maxbins=False,
         density=True,
         filename=None,
+        sizeweight=True,
         *args,
         **kwargs
     ):
@@ -1075,6 +1076,10 @@ class ClusterEnsemble(BaseUniverse):
         for frames_i in frames:
             masterlist.append(self._get_cluster_distribution(frames_i))
 
+        if sizeweight:
+            weights = masterlist
+        else:
+            weights = None
         # By making as many bins as molecules in the largest cluster
         # there is a bar for each clustersize
         if maxbins is True:
@@ -1084,7 +1089,9 @@ class ClusterEnsemble(BaseUniverse):
         else:
             bins = None
 
-        ax.hist(masterlist, bins=bins, density=density, *args, **kwargs)
+        ax.hist(
+            masterlist, weights=weights, bins=bins, density=density, *args, **kwargs
+        )
 
         ax.set_xlabel("Number of Monomers")
         if not density is True:
@@ -1092,11 +1099,6 @@ class ClusterEnsemble(BaseUniverse):
         else:
             ystring = "Probability"
         ax.set_ylabel(ystring)
-
-        if filename is None:
-            plt.show()
-        else:
-            plt.savefig(filename)
 
     def _get_cluster_distribution(self, frames):
         """Helper for plot_histogram to get a cluster distribution

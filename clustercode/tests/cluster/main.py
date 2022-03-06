@@ -1,5 +1,5 @@
 import sys
-import os
+import os, copy
 
 print(os.getcwd())
 sys.path.append("../")
@@ -13,7 +13,7 @@ tpr = "clustercode/tests/cluster/files/topol_small.tpr"
 # traj  = "/home/mk8118/OneDrive/2019/simulations/gromacs/SDS/\
 # check_ensembles/NVT/PME_revised/nh_10/base/nvt.trr"
 
-ClstrEns = ClusterEnsemble(tpr, traj, ["CE", "CM"])
+ClstrEns = ClusterEnsemble(tpr, traj, ["C{:d}".format(i) for i in range(1, 13)])
 ClstrEns.cluster_analysis(algorithm="static")
 clstr_ens_static = ClstrEns.cluster_list
 ClstrEns.cluster_analysis(algorithm="dynamic", work_in="Atom")
@@ -58,7 +58,7 @@ for idx_time, (static_clus_list, dynamic_clus_list) in enumerate(
         new_d_set = new_d_set.union(cluster)
 
     print(
-        "Static molec double counted: {:d}".format(static_molec_count - len(new_d_set))
+        "Static molec double counted: {:d}".format(static_molec_count - len(new_s_set))
     )
     print(
         "Dynamic molec double counted: {:d}".format(
