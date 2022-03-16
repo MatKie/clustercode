@@ -1,5 +1,6 @@
 import MDAnalysis
 import MDAnalysis.lib.NeighborSearch as NeighborSearch
+from clustercode.BaseUniverse import BaseUniverse
 import warnings
 
 # I will probably leave cluster_analysis() in ClusterEnsemble but then
@@ -7,9 +8,10 @@ import warnings
 # cluster_list (as the generator) and any other things that get set
 # in the current ClusterEnsemble.cluster_analysis() there after calculating
 # it in ClusterSearch.cluster_analysis().
-class ClusterSearch(object):
-    def __init__(self):
-        pass
+class ClusterSearch(BaseUniverse):
+    def __init__(self, universe, selection):
+        self.universe = universe
+        self.selection = selection
 
     def cluster_analysis(
         self,
@@ -80,7 +82,7 @@ class ClusterSearch(object):
             If an unspecified algorithm or work_in is choosen
         ValueError
             If pbc is not boolean
-        
+      
         ToDo
         ----
         -Make static and dynamic algorithms store the same arguments
@@ -89,12 +91,7 @@ class ClusterSearch(object):
         -Get rid of traj and coord attributes
         """
 
-        self._set_pbc_style(traj_pbc_style)
-
-        self.universe = self._get_universe(self._coord, traj=self._traj)
-
         self.style = style
-
         self.aggregate_species = self._select_species(self.universe, style=self.style)
 
         self.cluster_list = []
