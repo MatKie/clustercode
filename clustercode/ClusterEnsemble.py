@@ -4,7 +4,10 @@ import warnings
 import matplotlib.pyplot as plt
 from clustercode.BaseUniverse import BaseUniverse
 from clustercode.ClusterSearch import ClusterSearch
+from clustercode.UnwrapCluster import UnwrapCluster
 import numpy as np
+
+from clustercode.UnwrapCluster import UnwrapCluster
 
 # from MDAnalysis.core.groups import ResidueGroup
 """
@@ -107,11 +110,11 @@ class ClusterEnsemble(BaseUniverse):
             Gromacs pbc definitions: mol or atom, by default
             None
         pbc : bool, optional
-            Whether to consider periodic boundary conditions in the 
+            Whether to consider periodic boundary conditions in the
             neighbour search (for determining whether atoms belong to
-            the same cluster), by default True. Note that if work_in is 
+            the same cluster), by default True. Note that if work_in is
             set to "Residue" periodic boundary conditions are taken into
-            account implicitly for atoms in molecules passing across the 
+            account implicitly for atoms in molecules passing across the
             boundaries.
         verbosity: int, optional
             Controls how much the code talks.
@@ -122,7 +125,7 @@ class ClusterEnsemble(BaseUniverse):
             If an unspecified algorithm or work_in is choosen
         ValueError
             If pbc is not boolean
-        
+
         ToDo
         ----
         -Make static and dynamic algorithms store the same arguments
@@ -162,8 +165,8 @@ class ClusterEnsemble(BaseUniverse):
     ):
         """
         Calculate number of species ion around each distance specified
-        in distances around each cluster a cluster. 
-        MDAnalsys.lib.distances.capped_distances() is used for this, 
+        in distances around each cluster a cluster.
+        MDAnalsys.lib.distances.capped_distances() is used for this,
         there is an issue with this code see this PR:
             https://github.com/MDAnalysis/mdanalysis/pull/2937
         as long as this is not fixed, I put pkdtree as standard method.
@@ -177,9 +180,9 @@ class ClusterEnsemble(BaseUniverse):
             part of the headgroup or even a tailgroup.
         ion : str
             atom identifier of the species whose degree of condensation
-            around the headgroups is to be determined. 
+            around the headgroups is to be determined.
         distances : float, list of floats
-            Distance(s) up to which to determine the degree of 
+            Distance(s) up to which to determine the degree of
             condenstation. Can be multiple.
         valency : int, optional
             How many ions are there per headgroup, by default 1.
@@ -187,7 +190,7 @@ class ClusterEnsemble(BaseUniverse):
             Gromacs pbc definitions: mol or atom, by default
             None
         method : {'bruteforce', 'nsgrid', 'pkdtree'}, optional
-            Method to be passed to mda.lib.distances.capped_distance(). 
+            Method to be passed to mda.lib.distances.capped_distance().
         pbc : bool, optional
             Wether or not to take pbc into account, by default True
         verbosity : int, optional
@@ -254,134 +257,25 @@ class ClusterEnsemble(BaseUniverse):
         resgroup : MDAnalysis.ResidueGroup
             Cluster residues
         box : boxvector, optional
-            boxvector. If None is given taken from trajectory, 
+            boxvector. If None is given taken from trajectory,
             by default None
         unwrap : bool, optional
-            Wether or not to make molecules whole before treatment 
+            Wether or not to make molecules whole before treatment
             (only necessary if pbc = atom in trjconv) but doesn't hurt.
             By default True
         verbosity : int, optional
             Chattiness, by default 0
         """
-        # cluster is passed as resgroup and boxdimensions as xyz
-        # will only support triclinic as of now..
-        if box is None:
-            box = self.universe.dimensions
-        # Unwrap position if needed:
-        for residue in resgroup:
-            residue.atoms.unwrap(reference="cog", inplace=True)
-        # Find initial molecule (closest to Centre of box)
-        COB = box[:3] / 2
-        weights = None  # This selects COG, if we mass weight its COM
-        rmin = np.sum(box[:3]) * np.sum(box[:3])
-        imin = -1
-        for i, residue in enumerate(resgroup):
-            tmin = self._pbc(residue.atoms.center(weights=None), COB, box)
-            tmin = np.dot(tmin, tmin)
-            if tmin < rmin:
-                rmin = tmin
-                imin = i
-
-        # added and to_be_added store indices of residues
-        # in resgroup
-        nr_mol = resgroup.n_residues
-        to_be_added = [i for i in range(nr_mol)]
-        added = [to_be_added.pop(imin)]
-        nr_added = 1
-
-        # Setup the COG matrices
-        refset_cog = resgroup[added[0]].atoms.center(None)
-
-        configset_cog = np.zeros((nr_mol - 1, 3))
-        for i, index in enumerate(to_be_added):
-            configset_cog[i, :] = resgroup[index].atoms.center(None)
-
-        while nr_added < nr_mol:
-            # Find indices of nearest neighbours of a) res in micelle
-            # (imin) and b) res not yet in micelle (jmin). Indices
-            # w.r.t. resgroup
-            imin, jmin = self._unwrap_ns(
-                refset_cog, configset_cog, added, to_be_added, box
-            )
-            # Translate jmin by an appropriate vector if separated by a
-            # pbc from rest of micelle.
-            cog_i = resgroup[imin].atoms.center(weights=weights)
-            cog_j = resgroup[jmin].atoms.center(weights=weights)
-
-            dx = self._pbc(cog_j, cog_i, box)
-            xtest = cog_i + dx
-            shift = xtest - cog_j
-            if np.dot(shift, shift) > 1e-8:
-                if verbosity > 0.5:
-                    print(
-                        "Shifting molecule {:d} by {:.2f}, {:.2f}, {:.2f}".format(
-                            jmin, shift[0], shift[1], shift[2]
-                        )
-                    )
-                for atom in resgroup[jmin].atoms:
-                    atom.position += shift
-                cog_j += shift
-
-            # Add added res COG to res already in micelle
-            refset_cog = np.vstack((refset_cog, cog_j))
-            nr_added += 1
-            added.append(jmin)
-
-            # Remove added res from res not already in micelle.
-            _index = to_be_added.index(jmin)
-            configset_cog = np.delete(configset_cog, _index, 0)
-            del to_be_added[_index]
-
-    def _unwrap_ns(
-        self, refset_cog, configset_cog, added, to_be_added, box, method="pkdtree"
-    ):
-        """
-        Find NN in refset_cog and configset_cog and pass back
-        the indices stored in added and to_be added. 
-        """
-        distances = []
-        dist = 8.0
-        while len(distances) < 1:
-            pairs, distances = MDAnalysis.lib.distances.capped_distance(
-                refset_cog,
-                configset_cog,
-                dist,
-                box=box,
-                method=method,
-                return_distances=True,
-            )
-            dist += 0.5
-
-        minpair = np.where(distances == np.amin(distances))[0][0]
-
-        imin = added[pairs[minpair][0]]
-        jmin = to_be_added[pairs[minpair][1]]
-        return imin, jmin
-
-    @staticmethod
-    def _pbc(r1, r2, box):
-        # Rectangular boxes only
-        # Calculate fdiag, hdiag, mhdiag
-        fdiag = box[:3]
-        hdiag = fdiag / 2
-
-        dx = r1 - r2
-        # Loop over dims
-        for i in range(3):
-            # while loop upper limit: if dx > hdiag shift by - fdiag
-            while dx[i] > hdiag[i]:
-                dx[i] -= fdiag[i]
-            # while loop lower limit: if dx > hdiag shift by + fdiag
-            while dx[i] < -hdiag[i]:
-                dx[i] += fdiag[i]
-
-        return dx
+        self.UnwrapCluster = UnwrapCluster(self.universe)
+        self.UnwrapCluster.unwrap_cluster(
+            resgroup, box=box, unwrap=unwrap, verbosity=verbosity
+        )
 
     @staticmethod
     def _sort_eig(eig_val, eig_vec, reverse=False, test=False, tensor=False):
         """
-        Sort eig_val and eig_vec so that largest eig_value is last and 
-        smalles is first. Commute eig_vec accordingly.  
+        Sort eig_val and eig_vec so that largest eig_value is last and
+        smalles is first. Commute eig_vec accordingly.
         """
         for i in range(2, 0, -1):
             index = np.where(eig_val == np.max(eig_val[: i + 1]))[0][0]
@@ -410,10 +304,10 @@ class ClusterEnsemble(BaseUniverse):
     @staticmethod
     def _gyration_tensor(cluster, weights, test=False):
         """
-        Calculate gyration tensor either unweighted or mass weighted 
-        (pass vector of masses for that purpose). 
-        gyration tensor: 
-        
+        Calculate gyration tensor either unweighted or mass weighted
+        (pass vector of masses for that purpose).
+        gyration tensor:
+
         G_ab = 1/\sum_i wi \sum_i w_i r_a r_b  for a = {x, y, z}
         """
         r = np.subtract(cluster.atoms.positions, cluster.atoms.center(weights))
@@ -450,7 +344,7 @@ class ClusterEnsemble(BaseUniverse):
             cluster on which to perform analysis on.
         unwrap: bool, optional
             Wether or not to unwrap cluster around pbc. Default False.
-        
+
         Returns:
         --------
         f-factors : tuple of float
@@ -482,7 +376,7 @@ class ClusterEnsemble(BaseUniverse):
             cluster on which to perform analysis on.
         unwrap: bool, optional
             Wether or not to unwrap cluster around pbc. Default False.
-        
+
         Returns:
         --------
         eigenvalues : tuple of float
@@ -511,14 +405,14 @@ class ClusterEnsemble(BaseUniverse):
         """
         Calculte the inertia tensor defined as:
 
-        Ig_ab = 1/M sum_i m_i*(r^2 d_ab - r_a*r_b) 
+        Ig_ab = 1/M sum_i m_i*(r^2 d_ab - r_a*r_b)
         with a,b = {x,y,z} and r = (x,y,z) a d_ab is the
         kronecker delta. Basically mass weightes distance of a particle
-        from an axis. 
-        The matrix is diagonalised and the eigenvalues are the 
+        from an axis.
+        The matrix is diagonalised and the eigenvalues are the
         moment of inertia along the principal axis, where the smallest
-        value accompanies the major axis (the most mass is 
-        close to this axis). The largest value accompanies the minor 
+        value accompanies the major axis (the most mass is
+        close to this axis). The largest value accompanies the minor
         axis.
 
         Parameters:
@@ -529,7 +423,7 @@ class ClusterEnsemble(BaseUniverse):
             Wether or not to unwrap cluster around pbc. Default False.
         test: bool, optional
             Useful to compare some raw data with mdanalysis functions
-            on the fly for when you're not sure if you fucke something 
+            on the fly for when you're not sure if you fucke something
             up.
         Returns:
         --------
@@ -562,7 +456,7 @@ class ClusterEnsemble(BaseUniverse):
         self, cluster, mass=False, components=True, pca=True, unwrap=False, test=False
     ):
         """
-        Calculate the radius of gyration with mass weightes or non 
+        Calculate the radius of gyration with mass weightes or non
         mass weighted units (along prinicipal components)
 
         Rg = sqrt(sum_i mi(xi^2+yi^2+zi^2)/sum_i mi) if mass weighted
@@ -570,7 +464,7 @@ class ClusterEnsemble(BaseUniverse):
 
         component rg defined like this:
 
-        rg_x = sqrt(sum_i mi(yi^2+zi^2)/sum_i mi), 
+        rg_x = sqrt(sum_i mi(yi^2+zi^2)/sum_i mi),
 
         Parameters
         ----------
@@ -594,7 +488,7 @@ class ClusterEnsemble(BaseUniverse):
         rg_i : floats, optional
             If components is True, the components along x, y, z direction
             and if pca is also true along the threeprincipal axis, starting
-            with the principal axis with the largest eigenvalue. 
+            with the principal axis with the largest eigenvalue.
         """
         if unwrap:
             self.unwrap_cluster(cluster)
@@ -649,7 +543,7 @@ class ClusterEnsemble(BaseUniverse):
 
     def angle_distribution(self, cluster, ref1, ref2, ref3, unwrap=False):
         """
-        Calculate all the angles between the three atoms specified 
+        Calculate all the angles between the three atoms specified
         (ref1-3) for each molecule in cluster.
 
         Parameters
@@ -657,13 +551,13 @@ class ClusterEnsemble(BaseUniverse):
         cluster : MDAnalysis.ResidueGroup
             cluster on which to perform analysis on.
         ref1 : string
-            atomname within the molecules clustered in 'cluster'. One 
+            atomname within the molecules clustered in 'cluster'. One
             of the edge atoms of the angle: ref1 - ref2 - ref3
         ref2 : string
             atomname within the molecules clustered in 'cluster'.
             Central atom of the angle: ref1 - ref2 - ref3
         ref3 : string
-            atomname within the molecules clustered in 'cluster'. One 
+            atomname within the molecules clustered in 'cluster'. One
             of the edge atoms of the angle: ref1 - ref2 - ref3
         unwrap : boolean, optional
             wether or not to unwrap cluster around pbc, by default False
@@ -676,9 +570,9 @@ class ClusterEnsemble(BaseUniverse):
         Raises
         ------
         ValueError
-            In case the name of any of the references is ambiguous 
+            In case the name of any of the references is ambiguous
             (more than one atom with this name -- should be impossible).
-        
+
         @Todo: Make it possible to pass atoms instead of atom strings
                to reduce the number of atom selection when doing bond
                and angle distributions
@@ -711,7 +605,7 @@ class ClusterEnsemble(BaseUniverse):
 
     def distance_distribution(self, cluster, ref1, ref2, unwrap=False):
         """
-        Calculate all the distances between the two atoms specified 
+        Calculate all the distances between the two atoms specified
         (ref1, ref2) for each molecule in cluster.
 
         Parameters
@@ -719,7 +613,7 @@ class ClusterEnsemble(BaseUniverse):
         cluster : MDAnalysis.ResidueGroup
             cluster on which to perform analysis on.
         ref1 : string
-            atomname within the molecules clustered in 'cluster'. 
+            atomname within the molecules clustered in 'cluster'.
         ref2 : string
             atomname within the molecules clustered in 'cluster'.
         unwrap : boolean, optional
@@ -733,7 +627,7 @@ class ClusterEnsemble(BaseUniverse):
         Raises
         ------
         ValueError
-            In case the name of any of the references is ambiguous 
+            In case the name of any of the references is ambiguous
             (more than one atom with this name -- should be impossible).
 
         @Todo: Make it possible to pass atoms instead of atom strings
