@@ -4,6 +4,7 @@ import warnings
 import matplotlib.pyplot as plt
 from clustercode.BaseUniverse import BaseUniverse
 from clustercode.ClusterSearch import ClusterSearch
+from clustercode.CondensedIons import CondensedIons
 from clustercode.UnwrapCluster import UnwrapCluster
 import numpy as np
 
@@ -150,102 +151,6 @@ class ClusterEnsemble(BaseUniverse):
         self.cluster_list = self.ClusterSearch.cluster_list
         self.cluster_sizes = self.ClusterSearch.cluster_sizes
 
-    def condensed_ions(
-        self,
-        cluster,
-        headgroup,
-        ion,
-        distances,
-        valency=1,
-        traj_pbc_style=None,
-        method="pkdtree",
-        pbc=True,
-        wrap=False,
-        verbosity=0,
-    ):
-        """
-        Calculate number of species ion around each distance specified
-        in distances around each cluster a cluster.
-        MDAnalsys.lib.distances.capped_distances() is used for this,
-        there is an issue with this code see this PR:
-            https://github.com/MDAnalysis/mdanalysis/pull/2937
-        as long as this is not fixed, I put pkdtree as standard method.
-
-        Parameters
-        ----------
-        cluster: MDAnalysis.ResidueGroup
-            cluster on which to perform analysis on.
-        headgroup : str
-            atom identifier of the headgroup, can also be a specific
-            part of the headgroup or even a tailgroup.
-        ion : str
-            atom identifier of the species whose degree of condensation
-            around the headgroups is to be determined.
-        distances : float, list of floats
-            Distance(s) up to which to determine the degree of
-            condenstation. Can be multiple.
-        valency : int, optional
-            How many ions are there per headgroup, by default 1.
-        traj_pbc_style : string, optional
-            Gromacs pbc definitions: mol or atom, by default
-            None
-        method : {'bruteforce', 'nsgrid', 'pkdtree'}, optional
-            Method to be passed to mda.lib.distances.capped_distance().
-        pbc : bool, optional
-            Wether or not to take pbc into account, by default True
-        verbosity : int, optional
-            Determines how much the code talks, by default 0
-
-        Returns:
-        --------
-        condensed_ions: list of ints
-            the number of ions around headgroup for each distance.
-        """
-        condensed_ions = []
-        # Handle pbc
-        # self._set_pbc_style(traj_pbc_style)
-        if pbc:
-            box = self.universe.dimensions
-        else:
-            box = None
-        if wrap:
-            self.unwrap_cluster(cluster)
-
-        # Define configuration set
-        # This could be done with _select_species if refactored correctly.
-        # Improvement: When looping over multiple distances do it first
-        # for the largest distance, then adapt selection for shorter one.
-        if isinstance(ion, str):
-            ion = [ion]
-        configset = self.universe.select_atoms("name {:s}".format(" ".join(ion)))
-        configset = configset.atoms.positions
-        # Define reference set
-        if isinstance(headgroup, str):
-            headgroup = [headgroup]
-        refset = cluster.atoms.select_atoms("name {:s}".format(" ".join(headgroup)))
-        refset = refset.atoms.positions
-
-        condensed_ions = []
-        for distance in distances:
-            unique_idx = []
-            # Call capped_distance for pairs
-            pairs = MDAnalysis.lib.distances.capped_distance(
-                refset,
-                configset,
-                distance,
-                box=box,
-                method=method,
-                return_distances=False,
-            )
-            # Make unique
-            if pairs.size > 0:
-                unique_idx = MDAnalysis.lib.util.unique_int_1d(
-                    np.asarray(pairs[:, 1], dtype=np.int64)
-                )
-            condensed_ions.append(len(unique_idx))
-
-        return condensed_ions
-
     def unwrap_cluster(self, resgroup, box=None, unwrap=True, verbosity=0):
         """
         Make cluster which crosses pbc not cross pbc. Algorithm inspired
@@ -269,6 +174,52 @@ class ClusterEnsemble(BaseUniverse):
         self.UnwrapCluster = UnwrapCluster(self.universe)
         self.UnwrapCluster.unwrap_cluster(
             resgroup, box=box, unwrap=unwrap, verbosity=verbosity
+        )
+
+    def condensed_ions(
+        self,
+        cluster,
+        headgroup,
+        ion,
+        distances,
+        method="pkdtree",
+        pbc=True,
+        wrap=False,
+    ):
+        """
+        Calculate number of species ion around each distance specified
+        in distances around each cluster a cluster.
+        MDAnalsys.lib.distances.capped_distances() is used for this,
+        there is an issue with this code see this PR:
+            https://github.com/MDAnalysis/mdanalysis/pull/2937
+        as long as this is not fixed, I put pkdtree as standard method.
+
+        Parameters
+        ----------
+        cluster: MDAnalysis.ResidueGroup
+            cluster on which to perform analysis on.
+        headgroup : str
+            atom identifier of the headgroup, can also be a specific
+            part of the headgroup or even a tailgroup.
+        ion : str
+            atom identifier of the species whose degree of condensation
+            around the headgroups is to be determined.
+        distances : float, list of floats
+            Distance(s) up to which to determine the degree of
+            condenstation. Can be multiple.
+        method : {'bruteforce', 'nsgrid', 'pkdtree'}, optional
+            Method to be passed to mda.lib.distances.capped_distance().
+        pbc : bool, optional
+            Wether or not to take pbc into account, by default True
+
+        Returns:
+        --------
+        condensed_ions: list of ints
+            the number of ions around headgroup for each distance.
+        """
+        self.CondensedIons = CondensedIons(self.universe)
+        return self.CondensedIons.condensed_ions(
+            cluster, headgroup, ion, distances, method=method, pbc=pbc, wrap=wrap
         )
 
     @staticmethod
