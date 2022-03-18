@@ -5,8 +5,8 @@ import numpy as np
 
 
 class CondensedIons(object):
-    def __init__(self, universe):
-        self.universe = universe
+    def __init__(self):
+        self.universe = None
 
     def condensed_ions(
         self,
@@ -50,6 +50,7 @@ class CondensedIons(object):
             the number of ions around headgroup for each distance.
         """
         condensed_ions = []
+        self.universe = cluster.universe
         # Handle pbc
         # self._set_pbc_style(traj_pbc_style)
         if pbc:
@@ -57,7 +58,7 @@ class CondensedIons(object):
         else:
             box = None
         if wrap:
-            UnwrapCluster(self.universe).unwrap_cluster(cluster)
+            UnwrapCluster().unwrap_cluster(cluster)
 
         # Define configuration set
         # This could be done with _select_species if refactored correctly.

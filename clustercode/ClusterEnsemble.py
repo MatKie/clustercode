@@ -172,8 +172,7 @@ class ClusterEnsemble(BaseUniverse):
         verbosity : int, optional
             Chattiness, by default 0
         """
-        self.UnwrapCluster = UnwrapCluster(self.universe)
-        self.UnwrapCluster.unwrap_cluster(
+        UnwrapCluster().unwrap_cluster(
             resgroup, box=box, unwrap=unwrap, verbosity=verbosity
         )
 
@@ -218,8 +217,7 @@ class ClusterEnsemble(BaseUniverse):
         condensed_ions: list of ints
             the number of ions around headgroup for each distance.
         """
-        self.CondensedIons = CondensedIons(self.universe)
-        return self.CondensedIons.condensed_ions(
+        return CondensedIons().condensed_ions(
             cluster, headgroup, ion, distances, method=method, pbc=pbc, wrap=wrap
         )
 

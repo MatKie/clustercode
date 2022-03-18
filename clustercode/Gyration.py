@@ -113,7 +113,7 @@ class Gyration(object):
         Starting with the lowest value corresponding to the major axis.
         """
         if unwrap:
-            UnwrapCluster(cluster.universe).unwrap_cluster(cluster)
+            UnwrapCluster().unwrap_cluster(cluster)
 
         masses = cluster.atoms.masses
         inertia_tensor = self._gyration_tensor(cluster, masses, test=test)
@@ -173,7 +173,7 @@ class Gyration(object):
             with the principal axis with the largest eigenvalue.
         """
         if unwrap:
-            UnwrapCluster(cluster.universe).unwrap_cluster(cluster)
+            UnwrapCluster().unwrap_cluster(cluster)
 
         if mass:
             weights = cluster.atoms.masses

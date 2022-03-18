@@ -3,8 +3,8 @@ from MDAnalysis.lib.distances import capped_distance
 
 
 class UnwrapCluster(object):
-    def __init__(self, universe):
-        self.universe = universe
+    def __init__(self):
+        self.universe = None
 
     def unwrap_cluster(self, resgroup, box=None, unwrap=True, verbosity=0):
         """
@@ -28,6 +28,7 @@ class UnwrapCluster(object):
         """
         # cluster is passed as resgroup and boxdimensions as xyz
         # will only support triclinic as of now..
+        self.universe = resgroup.universe
         if box is None:
             box = self.universe.dimensions
         # Unwrap position if needed:
