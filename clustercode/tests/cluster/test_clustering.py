@@ -23,6 +23,18 @@ mol_cluster_sizes = MolClstr.cluster_sizes
 
 
 class TestClustering:
+    def test_generator(self):
+        i, j = 0, 0
+        for clusters in MainClstr.cluster_list:
+            for cluster in clusters:
+                i += 1
+
+        for clusters in MainClstr.cluster_list:
+            for cluster in clusters:
+                j += 1
+
+        assert i == j
+
     def test_algorithm_static(self):
         """
         Check if static and dynamic keywords get the same cluster

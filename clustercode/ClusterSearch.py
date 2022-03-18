@@ -67,11 +67,11 @@ class ClusterSearch(BaseUniverse):
             Gromacs pbc definitions: mol or atom, by default
             None
         pbc : bool, optional
-            Whether to consider periodic boundary conditions in the 
+            Whether to consider periodic boundary conditions in the
             neighbour search (for determining whether atoms belong to
-            the same cluster), by default True. Note that if work_in is 
+            the same cluster), by default True. Note that if work_in is
             set to "Residue" periodic boundary conditions are taken into
-            account implicitly for atoms in molecules passing across the 
+            account implicitly for atoms in molecules passing across the
             boundaries.
         verbosity: int, optional
             Controls how much the code talks.
@@ -82,7 +82,7 @@ class ClusterSearch(BaseUniverse):
             If an unspecified algorithm or work_in is choosen
         ValueError
             If pbc is not boolean
-      
+
         ToDo
         ----
         -Make static and dynamic algorithms store the same arguments
@@ -94,7 +94,7 @@ class ClusterSearch(BaseUniverse):
         self.style = style
         self.aggregate_species = self._select_species(self.universe, style=self.style)
 
-        self.cluster_list = []
+        self._cluster_list = []
         self.cluster_sizes = []
         self.times = times
 
@@ -139,21 +139,23 @@ class ClusterSearch(BaseUniverse):
             if self.times is not None:
                 if time.time > max(self.times) or time.time < min(self.times):
                     continue
-            self.cluster_list.append(cluster_algorithm(cut_off))
+            self._cluster_list.append(cluster_algorithm(cut_off))
             self.cluster_sizes.append(
-                [len(cluster) for cluster in self.cluster_list[-1]]
+                [len(cluster) for cluster in self._cluster_list[-1]]
             )
             if verbosity > 0:
                 print("****TIME: {:8.2f}".format(time.time))
-                print("---->Number of clusters {:d}".format(len(self.cluster_list[-1])))
+                print(
+                    "---->Number of clusters {:d}".format(len(self._cluster_list[-1]))
+                )
 
         # Rewind Trajectory to beginning for other analysis
         self.universe.trajectory.rewind()
-        self.cluster_list = self._create_generator(self.cluster_list)
+        self.cluster_list = self._create_generator(self._cluster_list)
 
     def _get_cluster_list_static(self, cut_off=7.5):
         """Get Cluster from single frame with the static method
-        
+
         This code simply loops over all atoms in the aggregate
         species and finds a cluster for each atom (all neighbours).
         This cluster is merged into the already found clusters.
@@ -161,7 +163,7 @@ class ClusterSearch(BaseUniverse):
         Parameters
         ----------
         cut_off : float, optional
-            Radius around which to search for neighbours 
+            Radius around which to search for neighbours
 
         Returns
         -------
@@ -186,7 +188,7 @@ class ClusterSearch(BaseUniverse):
 
     def _merge_cluster(self, cluster_list, cluster_temp):
         """Code to merge a cluster into a cluster list
-        
+
         This code merges a cluster into a clusterlist by reverse
         looping over the cluster list. Whenever an overlap is detected
         the new, temporary, cluster is merged into the old one and
@@ -303,7 +305,7 @@ class ClusterSearch(BaseUniverse):
             All the atoms/residues currently in the cluster
 
         Returns
-        ------- 
+        -------
         search_set : MDAnalysis ResidueGroup
             Atoms for which to look for neighbours updated to be
             the latest found ones
@@ -338,7 +340,7 @@ class ClusterSearch(BaseUniverse):
         """
         Make cluster_list a generator expression.
 
-        This works a bit weirdly. when looping over 
+        This works a bit weirdly. when looping over
         it, all transformations are only valid as long
         as the trajectory is not loaded again. For example
         when you run the loop do the cluster unwrapping
