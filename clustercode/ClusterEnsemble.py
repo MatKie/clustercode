@@ -6,6 +6,7 @@ from clustercode.BaseUniverse import BaseUniverse
 from clustercode.ClusterSearch import ClusterSearch
 from clustercode.CondensedIons import CondensedIons
 from clustercode.UnwrapCluster import UnwrapCluster
+from clustercode.Gyration import Gyration
 import numpy as np
 
 from clustercode.UnwrapCluster import UnwrapCluster
@@ -222,59 +223,6 @@ class ClusterEnsemble(BaseUniverse):
             cluster, headgroup, ion, distances, method=method, pbc=pbc, wrap=wrap
         )
 
-    @staticmethod
-    def _sort_eig(eig_val, eig_vec, reverse=False, test=False, tensor=False):
-        """
-        Sort eig_val and eig_vec so that largest eig_value is last and
-        smalles is first. Commute eig_vec accordingly.
-        """
-        for i in range(2, 0, -1):
-            index = np.where(eig_val == np.max(eig_val[: i + 1]))[0][0]
-            # Switch columns
-            eig_vec[:, [i, index]] = eig_vec[:, [index, i]]
-            eig_val[i], eig_val[index] = eig_val[index], eig_val[i]
-
-        if test:
-            if isinstance(tensor, np.ndarray):
-                for i in range(3):
-                    t1 = np.matmul(tensor, eig_vec[:, i])
-                    t2 = eig_val[i] * eig_vec[:, i]
-                    if not np.allclose(t1, t2):
-                        print(i, t1, t2)
-                        raise RuntimeError("Eigenvector sorting gone wrong!")
-
-            assert eig_val[2] >= eig_val[1]
-            assert eig_val[1] >= eig_val[0]
-
-        if reverse:
-            eig_vec[:, [0, 2]] = eig_vec[:, [2, 0]]
-            eig_val[0], eig_val[2] = eig_val[2], eig_val[0]
-
-        return eig_val, eig_vec
-
-    @staticmethod
-    def _gyration_tensor(cluster, weights, test=False):
-        """
-        Calculate gyration tensor either unweighted or mass weighted
-        (pass vector of masses for that purpose).
-        gyration tensor:
-
-        G_ab = 1/\sum_i wi \sum_i w_i r_a r_b  for a = {x, y, z}
-        """
-        r = np.subtract(cluster.atoms.positions, cluster.atoms.center(weights))
-
-        if weights is None:
-            weights = np.ones(r.shape)
-        else:
-            weights = np.broadcast_to(weights, (3, weights.shape[0])).transpose()
-
-        if test:
-            assert np.abs(np.sum(r * weights)) < 1e-7
-
-        gyration_tensor = np.matmul(r.transpose(), r * weights)
-
-        return gyration_tensor
-
     def calc_f_factors(self, cluster, unwrap=False, test=False):
         """
         Calculate eigenvalues of gryation tensor (see self.gyration())
@@ -301,13 +249,7 @@ class ClusterEnsemble(BaseUniverse):
         f-factors : tuple of float
             f_32 and f_21, as defined above.
         """
-
-        rg_33, rg_22, rg_11 = np.sqrt(self.gyration(cluster, unwrap, test))
-
-        f_32 = (rg_33 - rg_22) / rg_33
-        f_21 = (rg_22 - rg_11) / rg_33
-
-        return (f_32, f_21)
+        return Gyration().calc_f_factors(cluster, unwrap, test)
 
     def gyration(self, cluster, unwrap=False, test=False):
         """
@@ -335,22 +277,7 @@ class ClusterEnsemble(BaseUniverse):
             tensor in nm, starting with the largest one corresponding to the
             major axis (different than for inertia per gyration definiton).
         """
-        if unwrap:
-            self.unwrap_cluster(cluster)
-
-        gyration_tensor = self._gyration_tensor(cluster, None, test=test)
-
-        gyration_tensor /= cluster.n_residues
-
-        eig_val, eig_vec = np.linalg.eig(gyration_tensor)
-
-        # Sort eig_vals and vector
-        eig_val, eig_vec = self._sort_eig(
-            eig_val, eig_vec, reverse=True, test=test, tensor=gyration_tensor
-        )
-
-        # Return in nm^2
-        return eig_val / 100.0
+        return Gyration().gyration(cluster, unwrap, test)
 
     def inertia_tensor(self, cluster, unwrap=False, test=True):
         """
@@ -381,27 +308,7 @@ class ClusterEnsemble(BaseUniverse):
         eigenvalue : tuple of float
         Starting with the lowest value corresponding to the major axis.
         """
-        if unwrap:
-            self.unwrap_cluster(cluster)
-
-        masses = cluster.atoms.masses
-        inertia_tensor = self._gyration_tensor(cluster, masses, test=test)
-        trace = np.trace(inertia_tensor)
-        trace_array = trace * np.eye(3)
-        inertia_tensor = trace_array - inertia_tensor
-        if test:
-            assert np.sum(inertia_tensor - cluster.moment_of_inertia() < 1e-6)
-
-        inertia_tensor /= np.sum(cluster.masses)
-
-        eig_val, eig_vec = np.linalg.eig(inertia_tensor)
-
-        # Sort eig_vals and vector
-        eig_val, eig_vec = self._sort_eig(
-            eig_val, eig_vec, test=test, tensor=inertia_tensor
-        )
-
-        return eig_val / 100.0
+        return Gyration().inertia_tensor(cluster, unwrap, test)
 
     def rgyr(
         self, cluster, mass=False, components=True, pca=True, unwrap=False, test=False
@@ -441,56 +348,7 @@ class ClusterEnsemble(BaseUniverse):
             and if pca is also true along the threeprincipal axis, starting
             with the principal axis with the largest eigenvalue.
         """
-        if unwrap:
-            self.unwrap_cluster(cluster)
-
-        if mass:
-            weights = cluster.atoms.masses
-        else:
-            weights = np.ones(cluster.atoms.masses.shape)
-
-        gyration_tensor = self._gyration_tensor(cluster, weights, test=test)
-
-        # transform to nm
-        factor = 100.0 * sum(weights)
-        rg2 = np.trace(gyration_tensor)
-        rg2 /= factor
-
-        if components:
-            r = np.subtract(cluster.atoms.positions, cluster.atoms.center(weights))
-
-            if pca:
-                # Calculate eigenvectors for Karhunen-Loeve Transformation
-                eig_val, eig_vec = np.linalg.eig(gyration_tensor)
-                eig_val, eig_vec = self._sort_eig(
-                    eig_val, eig_vec, reverse=True, test=test, tensor=gyration_tensor
-                )
-                r = np.matmul(r, eig_vec)  # y = A_t * r w/ A = eig_vec
-
-            weights = np.broadcast_to(weights, (3, weights.shape[0])).transpose()
-
-            if test:
-                assert np.abs(np.sum(r * weights)) < 1e-8
-
-            # Although just trace needed, probably fastest
-            principal_gyration_tensor = np.matmul(r.transpose(), r * weights)
-            principal_rg2 = np.trace(principal_gyration_tensor)
-            principal_rg2 /= factor
-
-            if test:
-                assert np.abs(rg2 - principal_rg2) < 1e-8
-
-            rg2_1 = principal_rg2 - principal_gyration_tensor[0, 0] / factor
-            rg2_2 = principal_rg2 - principal_gyration_tensor[1, 1] / factor
-            rg2_3 = principal_rg2 - principal_gyration_tensor[2, 2] / factor
-
-            if test:
-                assert (
-                    np.abs(principal_rg2 - 0.5 * np.sum([rg2_1, rg2_2, rg2_3])) < 1e-8
-                )
-            ret = map(np.sqrt, (rg2, rg2_1, rg2_2, rg2_3))
-            return tuple(ret)
-        return np.sqrt(rg2)
+        return Gyration().rgyr(cluster, mass, components, pca, unwrap, test)
 
     def angle_distribution(self, cluster, ref1, ref2, ref3, unwrap=False):
         """
