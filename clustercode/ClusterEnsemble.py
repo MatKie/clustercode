@@ -1,11 +1,13 @@
 import MDAnalysis
 import MDAnalysis.lib.NeighborSearch as NeighborSearch
 import warnings
+from importlib_metadata import Distribution
 import matplotlib.pyplot as plt
 from clustercode.BaseUniverse import BaseUniverse
 from clustercode.ClusterSearch import ClusterSearch
 from clustercode.CondensedIons import CondensedIons
 from clustercode.UnwrapCluster import UnwrapCluster
+from clustercode.Distributions import Distributions
 from clustercode.Gyration import Gyration
 import numpy as np
 
@@ -389,31 +391,7 @@ class ClusterEnsemble(BaseUniverse):
                to reduce the number of atom selection when doing bond
                and angle distributions
         """
-        if unwrap:
-            self.unwrap_cluster(cluster)
-        angles = []
-        for molecule in cluster:
-            refs = []
-            for item in [ref1, ref2, ref3]:
-                if item != "COM":
-                    ref = molecule.atoms.select_atoms("name {:s}".format(item))
-                    ref_pos = ref.positions
-                    if len(ref_pos) > 1.2:
-                        raise ValueError(
-                            "Ambiguous reference choosen ({:s})".format(item)
-                        )
-                    refs.append(ref_pos[0])
-                else:
-                    refs.append(cluster.atoms.center_of_mass())
-            a, b, c = refs
-            r1 = a - b
-            r2 = c - b
-            r1_norm = np.linalg.norm(r1)
-            r2_norm = np.linalg.norm(r2)
-            cos_a = np.matmul(r1, r2.transpose()) / (r1_norm * r2_norm)
-            alpha = np.arccos(cos_a) * 180.0 / np.pi
-            angles.append(alpha)
-        return angles
+        return Distributions().angle_distribution(cluster, ref1, ref2, ref3, unwrap)
 
     def distance_distribution(self, cluster, ref1, ref2, unwrap=False):
         """
@@ -446,26 +424,7 @@ class ClusterEnsemble(BaseUniverse):
                to reduce the number of atom selection when doing bond
                and angle distributions
         """
-        if unwrap:
-            self.unwrap_cluster(cluster)
-        distances = []
-        for molecule in cluster:
-            refs = []
-            for item in [ref1, ref2]:
-                if item != "COM":
-                    ref = molecule.atoms.select_atoms("name {:s}".format(item))
-                    ref_pos = ref.positions
-                    if len(ref_pos) > 1.2:
-                        raise ValueError(
-                            "Ambiguous reference choosen ({:s})".format(item)
-                        )
-                    refs.append(ref_pos[0])
-                else:
-                    refs.append(cluster.atoms.center_of_mass())
-            a, b = refs
-            r1_norm = np.linalg.norm(a - b)
-            distances.append(r1_norm)
-        return distances
+        return Distributions().distance_distribution(cluster, ref1, ref2, unwrap)
 
     def plot_histogram(
         self,
