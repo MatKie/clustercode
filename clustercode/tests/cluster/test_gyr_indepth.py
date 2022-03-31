@@ -6,9 +6,11 @@ import pytest
 import numpy as np
 
 gro = traj = "clustercode/tests/cluster/files/cylinder.gro"
+gro_perfect = traj = "clustercode/tests/cluster/files/cylinder_perfect.gro"
 universe = mda.Universe(gro)
 
 cluster = universe.residues
+perfect_cluster = mda.Universe(gro_perfect).residues
 
 
 class TestGyrationTensor:
@@ -45,3 +47,14 @@ class TestGyrationTensor:
         eig_val, eig_vec = Gyration._sort_eig(eig_val, eig_vec, reverse=True)
         assert eig_val[2] <= eig_val[1]
         assert eig_val[1] <= eig_val[0]
+
+    def test_gyration(self):
+        gyration_values = Gyration().gyration(perfect_cluster)
+        assert gyration_values[0] > gyration_values[1]
+        assert gyration_values[1] == approx(gyration_values[2])
+
+    def test_rg(self):
+        gyration_values = Gyration().rgyr(perfect_cluster)
+        assert gyration_values[1] == approx(np.sqrt(0.8))
+        assert gyration_values[2] == approx(gyration_values[3])
+        assert gyration_values[2] == approx(np.sqrt(5.65))
