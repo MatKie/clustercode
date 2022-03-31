@@ -69,7 +69,7 @@ class Gyration(object):
             tensor in nm, starting with the largest one corresponding to the
             major axis (different than for inertia per gyration definiton).
         """
-        gyration_tensor = self._gyration_tensor(cluster, None, test=test)
+        gyration_tensor = self._gyration_tensor(cluster, None)
 
         gyration_tensor /= cluster.n_residues
 
@@ -116,7 +116,7 @@ class Gyration(object):
             UnwrapCluster().unwrap_cluster(cluster)
 
         masses = cluster.atoms.masses
-        inertia_tensor = self._gyration_tensor(cluster, masses, test=test)
+        inertia_tensor = self._gyration_tensor(cluster, masses)
         trace = np.trace(inertia_tensor)
         trace_array = trace * np.eye(3)
         inertia_tensor = trace_array - inertia_tensor
@@ -180,7 +180,7 @@ class Gyration(object):
         else:
             weights = np.ones(cluster.atoms.masses.shape)
 
-        gyration_tensor = self._gyration_tensor(cluster, weights, test=test)
+        gyration_tensor = self._gyration_tensor(cluster, weights)
 
         # transform to nm
         factor = 100.0 * sum(weights)
@@ -254,7 +254,7 @@ class Gyration(object):
         return eig_val, eig_vec
 
     @staticmethod
-    def _gyration_tensor(cluster, weights, test=False):
+    def _gyration_tensor(cluster, weights):
         """
         Calculate gyration tensor either unweighted or mass weighted
         (pass vector of masses for that purpose).
@@ -262,16 +262,22 @@ class Gyration(object):
 
         G_ab = 1/\sum_i wi \sum_i w_i r_a r_b  for a = {x, y, z}
         """
-        r = np.subtract(cluster.atoms.positions, cluster.atoms.center(weights))
+        r = Gyration._get_reduced_r(cluster, weights)
+        position_weights = Gyration._get_weights(cluster, weights)
+        gyration_tensor = np.matmul(r.transpose(), r * position_weights)
 
+        return gyration_tensor
+
+    @staticmethod
+    def _get_reduced_r(cluster, weights):
+        r = np.subtract(cluster.atoms.positions, cluster.atoms.center(weights))
+        return r
+
+    @staticmethod
+    def _get_weights(cluster, weights):
         if weights is None:
-            weights = np.ones(r.shape)
+            weights = np.ones_like(cluster.atoms.positions)
         else:
             weights = np.broadcast_to(weights, (3, weights.shape[0])).transpose()
 
-        if test:
-            assert np.abs(np.sum(r * weights)) < 1e-7
-
-        gyration_tensor = np.matmul(r.transpose(), r * weights)
-
-        return gyration_tensor
+        return weights
