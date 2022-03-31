@@ -76,9 +76,7 @@ class Gyration(object):
         eig_val, eig_vec = np.linalg.eig(gyration_tensor)
 
         # Sort eig_vals and vector
-        eig_val, eig_vec = self._sort_eig(
-            eig_val, eig_vec, reverse=True, test=test, tensor=gyration_tensor
-        )
+        eig_val, eig_vec = self._sort_eig(eig_val, eig_vec, reverse=True)
 
         # Return in nm^2
         return eig_val / 100.0
@@ -128,9 +126,7 @@ class Gyration(object):
         eig_val, eig_vec = np.linalg.eig(inertia_tensor)
 
         # Sort eig_vals and vector
-        eig_val, eig_vec = self._sort_eig(
-            eig_val, eig_vec, test=test, tensor=inertia_tensor
-        )
+        eig_val, eig_vec = self._sort_eig(eig_val, eig_vec)
 
         return eig_val / 100.0
 
@@ -193,9 +189,7 @@ class Gyration(object):
             if pca:
                 # Calculate eigenvectors for Karhunen-Loeve Transformation
                 eig_val, eig_vec = np.linalg.eig(gyration_tensor)
-                eig_val, eig_vec = self._sort_eig(
-                    eig_val, eig_vec, reverse=True, test=test, tensor=gyration_tensor
-                )
+                eig_val, eig_vec = self._sort_eig(eig_val, eig_vec, reverse=True)
                 r = np.matmul(r, eig_vec)  # y = A_t * r w/ A = eig_vec
 
             weights = np.broadcast_to(weights, (3, weights.shape[0])).transpose()
@@ -224,7 +218,7 @@ class Gyration(object):
         return np.sqrt(rg2)
 
     @staticmethod
-    def _sort_eig(eig_val, eig_vec, reverse=False, test=False, tensor=False):
+    def _sort_eig(eig_val, eig_vec, reverse=False):
         """
         Sort eig_val and eig_vec so that largest eig_value is last and
         smalles is first. Commute eig_vec accordingly.
@@ -234,18 +228,6 @@ class Gyration(object):
             # Switch columns
             eig_vec[:, [i, index]] = eig_vec[:, [index, i]]
             eig_val[i], eig_val[index] = eig_val[index], eig_val[i]
-
-        if test:
-            if isinstance(tensor, np.ndarray):
-                for i in range(3):
-                    t1 = np.matmul(tensor, eig_vec[:, i])
-                    t2 = eig_val[i] * eig_vec[:, i]
-                    if not np.allclose(t1, t2):
-                        print(i, t1, t2)
-                        raise RuntimeError("Eigenvector sorting gone wrong!")
-
-            assert eig_val[2] >= eig_val[1]
-            assert eig_val[1] >= eig_val[0]
 
         if reverse:
             eig_vec[:, [0, 2]] = eig_vec[:, [2, 0]]
