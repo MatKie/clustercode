@@ -70,14 +70,18 @@ class TestGyration:
                 for item, other_item in zip(our_inertia, their_inertia):
                     assert item == approx(other_item, abs=0.13)
 
-    @pytest.mark.xfail(reason="rgyr was only coded for Residuegroups",)
+    @pytest.mark.xfail(
+        reason="rgyr was only coded for Residuegroups",
+    )
     def test_calc_rgyr_work_in_atomistic_quali(self):
         for clusters in AtomClstr.cluster_list:
             for cluster in clusters:
                 clstr.unwrap_cluster(cluster)
                 _ = clstr.rgyr(cluster, mass=True, components=True, pca=True)
 
-    @pytest.mark.xfail(reason="rgyr was only coded for Residuegroups",)
+    @pytest.mark.xfail(
+        reason="rgyr was only coded for Residuegroups",
+    )
     def test_calc_rgyr_work_in_atomistic_quanti(self):
         """
         This test checks if the result for the radius of gyration calculation
@@ -93,6 +97,9 @@ class TestGyration:
                     assert item == approx(other_item, abs=5e-4)
 
     def test_rg_princ(self):
+        """
+        check if radius of gyration is the same for pca and not pca
+        """
         for clusters in clstr.cluster_list:
             for cluster in clusters:
                 clstr.unwrap_cluster(cluster)
@@ -103,6 +110,13 @@ class TestGyration:
                 assert rg == approx(rg_comp[0])
 
     def test_rg_gyration(self):
+        """
+        Test if rgyr() and gyration() fullfill some of their dependencies
+        for a real world example.
+        rg^2 - gyr_x = rg_x (same with y,z)
+        gyr_y + gyr_z = rg_x
+        rg^2  = sum(gyr)
+        """
         for clusters in clstr.cluster_list:
             for cluster in clusters:
                 clstr.unwrap_cluster(cluster)

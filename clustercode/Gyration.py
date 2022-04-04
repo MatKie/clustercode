@@ -128,13 +128,7 @@ class Gyration(object):
         if unwrap:
             UnwrapCluster().unwrap_cluster(cluster)
 
-        masses = cluster.atoms.masses
-        inertia_tensor = self._gyration_tensor(cluster, masses)
-        trace = np.trace(inertia_tensor)
-        trace_array = trace * np.eye(3)
-        inertia_tensor = trace_array - inertia_tensor
-        if test:
-            assert np.sum(inertia_tensor - cluster.moment_of_inertia() < 1e-6)
+        inertia_tensor = Gyration._inertia_tensor(cluster)
 
         inertia_tensor /= np.sum(cluster.masses)
 
@@ -183,44 +177,20 @@ class Gyration(object):
             and if pca is also true along the threeprincipal axis, starting
             with the principal axis with the largest eigenvalue.
         """
-        if unwrap:
-            UnwrapCluster().unwrap_cluster(cluster)
 
-        if mass:
-            weights = cluster.atoms.masses
-        else:
-            weights = np.ones(cluster.atoms.masses.shape)
-
-        # transform to nm
-        factor = 100.0 * sum(weights)
+        gyration_values = self.gyration(cluster, unwrap, mass, pca)
 
         if components:
-            r = Gyration._get_reduced_r(cluster, weights)
+            rg2 = np.sum(gyration_values)
 
-            if pca:
-                gyration_tensor = Gyration()._gyration_tensor(cluster, weights)
-                # Calculate eigenvectors for Karhunen-Loeve Transformation
-                eig_val, eig_vec = np.linalg.eig(gyration_tensor)
-                eig_val, eig_vec = self._sort_eig(eig_val, eig_vec, reverse=True)
-                r = np.matmul(r, eig_vec)  # y = A_t * r w/ A = eig_vec
+            rg2_1 = rg2 - gyration_values[0]
+            rg2_2 = rg2 - gyration_values[1]
+            rg2_3 = rg2 - gyration_values[2]
 
-            weights = Gyration._get_weights(cluster, weights)
-
-            # Although just trace needed, probably fastest
-            principal_gyration_tensor = np.matmul(r.transpose(), r * weights)
-            principal_rg2 = np.trace(principal_gyration_tensor)
-            principal_rg2 /= factor
-
-            rg2_1 = principal_rg2 - principal_gyration_tensor[0, 0] / factor
-            rg2_2 = principal_rg2 - principal_gyration_tensor[1, 1] / factor
-            rg2_3 = principal_rg2 - principal_gyration_tensor[2, 2] / factor
-
-            ret = map(np.sqrt, (principal_rg2, rg2_1, rg2_2, rg2_3))
+            ret = map(np.sqrt, (rg2, rg2_1, rg2_2, rg2_3))
             return tuple(ret)
 
-        gyration_tensor = self._gyration_tensor(cluster, weights)
-        rg2 = np.trace(gyration_tensor)
-        rg2 /= factor
+        rg2 = np.sum(gyration_values)
 
         return np.sqrt(rg2)
 
@@ -296,3 +266,12 @@ class Gyration(object):
         r = np.matmul(r, eig_vec)  # y = A_t * r w/ A = eig_vec
         gyration_tensor = Gyration._gyration_tensor_explicit(r, position_weights)
         return gyration_tensor
+
+    @staticmethod
+    def _inertia_tensor(cluster):
+        masses = cluster.atoms.masses
+        inertia_tensor = Gyration._gyration_tensor(cluster, masses)
+        trace = np.trace(inertia_tensor)
+        trace_array = trace * np.eye(3)
+        inertia_tensor = trace_array - inertia_tensor
+        return inertia_tensor

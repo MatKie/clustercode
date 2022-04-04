@@ -16,7 +16,7 @@ perfect_cluster = mda.Universe(gro_perfect).residues
 class TestGyrationTensor:
     def test_cog(self):
         """
-        Test if reduced r & weights calculates centre of geometry accurately. 
+        Test if reduced r & weights calculates centre of geometry accurately.
         """
         r = Gyration._get_reduced_r(cluster, None)
         weights = Gyration._get_weights(cluster, None)
@@ -24,7 +24,7 @@ class TestGyrationTensor:
 
     def test_com(self):
         """
-        Test if reduced r & weights calculates centre of mass accurately. 
+        Test if reduced r & weights calculates centre of mass accurately.
         """
         weights = cluster.atoms.masses
         r = Gyration._get_reduced_r(cluster, weights)
@@ -66,7 +66,7 @@ class TestGyrationTensor:
 
     def test_gyration(self):
         """
-        The gyration value is the root-mean-square distance of 
+        The gyration value is the root-mean-square distance of
         the radii components along the respecitve axis. The mrs radii
         of xyz are 5.25, 0.4, 0.4.
         """
@@ -78,8 +78,8 @@ class TestGyrationTensor:
 
     def test_rg(self):
         """
-        The radius of gyration values x,y,z are the root-mean-square of 
-        the radii components orthogonal to each axis. THe rms radii of 
+        The radius of gyration values x,y,z are the root-mean-square of
+        the radii components orthogonal to each axis. THe rms radii of
         xyz are 5.25, 0.4, 0.4. Therefore the rg_i^2 must be 0.8, 5.65, 5.65.
         """
         gyration_values = Gyration().rgyr(perfect_cluster)
@@ -97,3 +97,9 @@ class TestGyrationTensor:
         for non_mass, mass in zip(gyration_values, gyration_mass_values):
             assert non_mass == approx(mass)
 
+    def test_intertia_w_mda(self):
+        """
+        Check if my inertia_tensor gives same results than MDA
+        """
+        inertia_tensor = Gyration._inertia_tensor(cluster)
+        assert inertia_tensor == approx(cluster.moment_of_inertia())
