@@ -1,0 +1,32 @@
+# This file was created Fri Mar  4 16:28:28 2022
+# Created by:
+#                    :-) GROMACS - gmx principal, 2019.3 (-:
+# 
+# Executable:   /usr/local/gromacs/bin/gmx
+# Data prefix:  /usr/local/gromacs
+# Working dir:  /Users/matthias/CODE/clustercode/clustercode/tests/cluster/files
+# Command line:
+#   gmx principal -f traj_pbc_problematic_cluster.xtc -s topol_no_solv.tpr -tu s
+# gmx principal is part of G R O M A C S:
+#
+# Grunge ROck MAChoS
+#
+@    title "Principal axis 2 (middle axis)"
+@    xaxis  label "Time (ps)"
+@    yaxis  label "Component (nm)"
+@TYPE xy
+@ view 0.15, 0.15, 0.75, 0.85
+@ legend on
+@ legend box on
+@ legend loctype view
+@ legend 0.78, 0.8
+@ legend length 2
+@ s0 legend "X component"
+@ s1 legend "Y component"
+@ s2 legend "Z component"
+429000.0000000000       -0.0459931195     0.1928211153     0.9801554084
+429100.0000000000        0.1312386245     0.1854954958     0.9738417864
+429200.0000000000       -0.3912365139    -0.1501559615     0.9079576731
+429300.0000000000        0.4559807181     0.4030185640     0.7935096622
+429400.0000000000        0.2503758669     0.2838309705     0.9256089330
+429500.0000000000       -0.1990580261    -0.0582948104     0.9782523513
