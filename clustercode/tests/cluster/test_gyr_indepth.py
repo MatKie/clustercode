@@ -96,3 +96,4 @@ class TestGyrationTensor:
         gyration_mass_values = Gyration().rgyr(perfect_cluster, mass=True)
         for non_mass, mass in zip(gyration_values, gyration_mass_values):
             assert non_mass == approx(mass)
+

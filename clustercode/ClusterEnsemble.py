@@ -256,7 +256,7 @@ class ClusterEnsemble(BaseUniverse):
         """
         return Gyration().calc_f_factors(cluster, unwrap, test)
 
-    def gyration(self, cluster, unwrap=False, test=False):
+    def gyration(self, cluster, unwrap=False,mass=False, pca=False):
         """
         Calculte the gyration tensor defined as:
 
@@ -282,7 +282,7 @@ class ClusterEnsemble(BaseUniverse):
             tensor in nm, starting with the largest one corresponding to the
             major axis (different than for inertia per gyration definiton).
         """
-        return Gyration().gyration(cluster, unwrap, test)
+        return Gyration().gyration(cluster, unwrap, mass, pca)
 
     def inertia_tensor(self, cluster, unwrap=False, test=True):
         """

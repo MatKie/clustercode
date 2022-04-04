@@ -1,3 +1,4 @@
+from turtle import position
 import numpy as np
 from clustercode.UnwrapCluster import UnwrapCluster
 
@@ -43,7 +44,7 @@ class Gyration(object):
 
         return (f_32, f_21)
 
-    def gyration(self, cluster, unwrap=False, test=False):
+    def gyration(self, cluster, unwrap=False, mass=False, pca=False):
         """
         Calculte the gyration tensor defined as:
 
@@ -69,17 +70,31 @@ class Gyration(object):
             tensor in nm, starting with the largest one corresponding to the
             major axis (different than for inertia per gyration definiton).
         """
-        gyration_tensor = self._gyration_tensor(cluster, None)
+        if unwrap:
+            UnwrapCluster().unwrap_cluster(cluster)
 
-        gyration_tensor /= cluster.n_residues
+        if mass:
+            weights = cluster.atoms.masses
+        else:
+            weights = np.ones(cluster.atoms.masses.shape)
+
+        r = Gyration._get_reduced_r(cluster, weights)
+        position_weights = Gyration._get_weights(cluster, weights)
+        gyration_tensor = self._gyration_tensor_explicit(r, position_weights)
+
+        if pca:
+            gyration_tensor = Gyration._pca(gyration_tensor, r, position_weights)
 
         eig_val, eig_vec = np.linalg.eig(gyration_tensor)
 
         # Sort eig_vals and vector
         eig_val, eig_vec = self._sort_eig(eig_val, eig_vec, reverse=True)
 
-        # Return in nm^2
-        return eig_val / 100.0
+        # Return in nm^2 and per weight unit
+        factor = 100.0 * np.sum(weights)
+        eig_val /= factor
+
+        return eig_val
 
     def inertia_tensor(self, cluster, unwrap=False, test=True):
         """
@@ -176,45 +191,37 @@ class Gyration(object):
         else:
             weights = np.ones(cluster.atoms.masses.shape)
 
-        gyration_tensor = self._gyration_tensor(cluster, weights)
-
         # transform to nm
         factor = 100.0 * sum(weights)
-        rg2 = np.trace(gyration_tensor)
-        rg2 /= factor
 
         if components:
-            r = np.subtract(cluster.atoms.positions, cluster.atoms.center(weights))
+            r = Gyration._get_reduced_r(cluster, weights)
 
             if pca:
+                gyration_tensor = Gyration()._gyration_tensor(cluster, weights)
                 # Calculate eigenvectors for Karhunen-Loeve Transformation
                 eig_val, eig_vec = np.linalg.eig(gyration_tensor)
                 eig_val, eig_vec = self._sort_eig(eig_val, eig_vec, reverse=True)
                 r = np.matmul(r, eig_vec)  # y = A_t * r w/ A = eig_vec
 
-            weights = np.broadcast_to(weights, (3, weights.shape[0])).transpose()
-
-            if test:
-                assert np.abs(np.sum(r * weights)) < 1e-8
+            weights = Gyration._get_weights(cluster, weights)
 
             # Although just trace needed, probably fastest
             principal_gyration_tensor = np.matmul(r.transpose(), r * weights)
             principal_rg2 = np.trace(principal_gyration_tensor)
             principal_rg2 /= factor
 
-            if test:
-                assert np.abs(rg2 - principal_rg2) < 1e-8
-
             rg2_1 = principal_rg2 - principal_gyration_tensor[0, 0] / factor
             rg2_2 = principal_rg2 - principal_gyration_tensor[1, 1] / factor
             rg2_3 = principal_rg2 - principal_gyration_tensor[2, 2] / factor
 
-            if test:
-                assert (
-                    np.abs(principal_rg2 - 0.5 * np.sum([rg2_1, rg2_2, rg2_3])) < 1e-8
-                )
-            ret = map(np.sqrt, (rg2, rg2_1, rg2_2, rg2_3))
+            ret = map(np.sqrt, (principal_rg2, rg2_1, rg2_2, rg2_3))
             return tuple(ret)
+
+        gyration_tensor = self._gyration_tensor(cluster, weights)
+        rg2 = np.trace(gyration_tensor)
+        rg2 /= factor
+
         return np.sqrt(rg2)
 
     @staticmethod
@@ -246,9 +253,13 @@ class Gyration(object):
         """
         r = Gyration._get_reduced_r(cluster, weights)
         position_weights = Gyration._get_weights(cluster, weights)
-        gyration_tensor = np.matmul(r.transpose(), r * position_weights)
+        gyration_tensor = Gyration._gyration_tensor_explicit(r, position_weights)
 
         return gyration_tensor
+
+    @staticmethod
+    def _gyration_tensor_explicit(r, weights_matrix):
+        return np.matmul(r.transpose(), r * weights_matrix)
 
     @staticmethod
     def _get_reduced_r(cluster, weights):
@@ -263,3 +274,25 @@ class Gyration(object):
             weights = np.broadcast_to(weights, (3, weights.shape[0])).transpose()
 
         return weights
+
+    @staticmethod
+    def _pca(gyration_tensor, r, position_weights):
+        """
+        Perofrms the Karhunen Loeve Transformation from eigenvectors
+        of gyration tensor.
+
+        Parameters
+        ----------
+        gyration_tensor : np.array
+            3x3 matrix
+        r : np.array
+            reduced_positions nx3
+        position_weights : np.array
+            weights per atom position nx3
+        """
+        # Calculate eigenvectors for Karhunen-Loeve Transformation
+        eig_val, eig_vec = np.linalg.eig(gyration_tensor)
+        eig_val, eig_vec = Gyration._sort_eig(eig_val, eig_vec, reverse=True)
+        r = np.matmul(r, eig_vec)  # y = A_t * r w/ A = eig_vec
+        gyration_tensor = Gyration._gyration_tensor_explicit(r, position_weights)
+        return gyration_tensor

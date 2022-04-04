@@ -70,18 +70,14 @@ class TestGyration:
                 for item, other_item in zip(our_inertia, their_inertia):
                     assert item == approx(other_item, abs=0.13)
 
-    @pytest.mark.xfail(
-        reason="rgyr was only coded for Residuegroups",
-    )
+    @pytest.mark.xfail(reason="rgyr was only coded for Residuegroups",)
     def test_calc_rgyr_work_in_atomistic_quali(self):
         for clusters in AtomClstr.cluster_list:
             for cluster in clusters:
                 clstr.unwrap_cluster(cluster)
                 _ = clstr.rgyr(cluster, mass=True, components=True, pca=True)
 
-    @pytest.mark.xfail(
-        reason="rgyr was only coded for Residuegroups",
-    )
+    @pytest.mark.xfail(reason="rgyr was only coded for Residuegroups",)
     def test_calc_rgyr_work_in_atomistic_quanti(self):
         """
         This test checks if the result for the radius of gyration calculation
@@ -95,6 +91,28 @@ class TestGyration:
                 our_gyrate = clstr.rgyr(cluster, mass=True, components=True, pca=True)
                 for item, other_item in zip(their_gyrate, our_gyrate):
                     assert item == approx(other_item, abs=5e-4)
+
+    def test_rg_princ(self):
+        for clusters in clstr.cluster_list:
+            for cluster in clusters:
+                clstr.unwrap_cluster(cluster)
+                rg_comp = clstr.rgyr(cluster, mass=True, pca=False, components=True)
+                rg_pca_comp = clstr.rgyr(cluster, mass=True, pca=True, components=True)
+                rg = clstr.rgyr(cluster, mass=True, pca=False, components=False)
+                assert rg == approx(rg_pca_comp[0])
+                assert rg == approx(rg_comp[0])
+
+    def test_rg_gyration(self):
+        for clusters in clstr.cluster_list:
+            for cluster in clusters:
+                clstr.unwrap_cluster(cluster)
+                rg_pca = clstr.rgyr(cluster, mass=True, pca=True, components=True)
+                gyr_pca = clstr.gyration(cluster, mass=True, pca=True)
+                rg_pca = list(map(lambda x: x * x, rg_pca))
+                assert rg_pca[1] == approx(rg_pca[0] - gyr_pca[0])
+                assert rg_pca[1] == approx(sum(gyr_pca[1:]))
+                assert rg_pca[2] == approx(gyr_pca[0] + gyr_pca[2])
+                assert rg_pca[3] == approx(gyr_pca[0] + gyr_pca[1])
 
 
 # TestGyration().test_moment_of_inertia()
